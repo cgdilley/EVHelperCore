@@ -1,0 +1,4 @@
+.idea/*
+build/
+evhelper_core.egg-info/
+*.lock
