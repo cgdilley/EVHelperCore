@@ -7,6 +7,9 @@ from typing import Dict, Optional
 
 
 class Dex(Enum):
+    """
+    A particular Pokédex assigning Pokédex numbers to different Pokémon
+    """
     GEN_1 = "Red/Blue/Yellow"
     GEN_2 = "Gold/Silver/Crystal"
     GEN_3 = "Ruby/Sapphire/Emerald"
@@ -29,6 +32,9 @@ class Dex(Enum):
 
 
 class DexEntry(IJsonExchangeable):
+    """
+    Represents a particular Pokédex and Pokédex number
+    """
 
     def __init__(self, dex: Dex, number: int):
         self.dex = dex
@@ -61,6 +67,10 @@ class DexEntry(IJsonExchangeable):
 
 
 class DexEntryCollection(IJsonExchangeable):
+    """
+    Represents a collection of Pokédex entries that a particular Pokémon is
+    represented by.
+    """
 
     def __init__(self, *entries: DexEntry):
         self.entries: Dict[Dex, DexEntry] = {

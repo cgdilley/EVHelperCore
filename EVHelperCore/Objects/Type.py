@@ -28,6 +28,10 @@ class Type(Enum):
 
 
 class Typing(IJsonExchangeable, Iterable[Type]):
+    """
+    Describes the typing of a particular Pokémon, including its primary and secondary typing and any other extra
+    typing it may have gained (eg. through Trick-or-Treat).
+    """
 
     def __init__(self, primary: Type,
                  secondary: Optional[Type] = None,

@@ -15,6 +15,9 @@ DEFAULT_LANGUAGE = "en"
 
 
 class _NameBase(IJsonExchangeable, ABC):
+    """
+    Base class for Name objects, representing a "default" name (usually English) and localized versions of that name.
+    """
 
     def __init__(self, default_name: str,
                  localized_names: Dict[str, str]):
@@ -57,6 +60,11 @@ class _NameBase(IJsonExchangeable, ABC):
 
 
 class VariantName(_NameBase, ABC):
+    """
+    Base class for the name of the particular variant of a Pokémon that gets appended or prepended to
+    a particular Pokémon's base name.
+    Eg. Mega Blaziken -> base name = Blaziken, variant name = Mega
+    """
 
     def __init__(self, default_name: str, localized_names: Dict[str, str],
                  spacer: str = " "):
@@ -83,7 +91,13 @@ class VariantName(_NameBase, ABC):
         return super().to_json() if self.spacer == " " else {**super().to_json(), "spacer": self.spacer}
 
 
+#
+
+
 class PrefixVariantName(VariantName):
+    """
+    A variant name that gets attached to the start of the Pokémon's name
+    """
 
     def apply_variant_name(self, root_name: str, language: str = None) -> str:
         return f"{self.localized_name(language)}{self.spacer}{root_name}"
@@ -97,6 +111,9 @@ class PrefixVariantName(VariantName):
 
 
 class SuffixVariantName(VariantName):
+    """
+    A variant name that gets attached to the end of the Pokémon's name
+    """
 
     def __init__(self, default_name: str,
                  localized_names: Dict[str, str],
@@ -119,7 +136,13 @@ class SuffixVariantName(VariantName):
         return j
 
 
+#
+
+
 class CircumfixVariantName(VariantName):
+    """
+    A variant name that gets attached before and after the Pokémon's name
+    """
 
     def __init__(self, default_prefix: str,
                  default_suffix: str,
@@ -185,6 +208,11 @@ class CircumfixVariantName(VariantName):
 
 
 class Name(_NameBase):
+    """
+    The textual name of a particular Pokémon, including that Pokémon's base name and any variant names for
+    that Pokémon.
+    Eg. Mega Blaziken -> base name = Blaziken, variant name = Mega
+    """
 
     def __init__(self, default_name: str,
                  localized_names: Dict[str, str],

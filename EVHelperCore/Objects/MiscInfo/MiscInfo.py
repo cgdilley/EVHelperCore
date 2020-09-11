@@ -9,6 +9,10 @@ from typing import Optional
 
 
 class MiscInfo(IJsonExchangeable):
+    """
+    Assorted information about a Pokémon that doesn't belong in any other object type.
+    All properties of this class are optional.
+    """
 
     def __init__(self, ev_yield: Optional[EVYield] = None,
                  evolution_line: Optional[EvolutionLine] = None):

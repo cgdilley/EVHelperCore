@@ -18,6 +18,9 @@ from typing import Iterable, Dict, List, Iterator, Optional
 
 
 class PokemonData(IJsonExchangeable):
+    """
+    Represents the baseline collection of attributes that defines a particular species and variant of a Pokémon.
+    """
 
     def __init__(self,
                  name: Name,
@@ -30,6 +33,20 @@ class PokemonData(IJsonExchangeable):
                  misc_info: MiscInfo,
                  name_id: Optional[str] = None,
                  base_id: Optional[str] = None):
+        """
+        :param name: The textual name of the Pokémon, including the variant name
+        :param variant: Information about the particular variant of the Pokémon (eg. regional, gender, etc.)
+        :param typing: The typing of the Pokémon
+        :param stats: The base stat totals for the Pokémon
+        :param abilities: The abilities the Pokémon is able to have
+        :param move_list: The moves that the Pokémon is able to learn
+        :param dex_entries: The Pokédex entries that the Pokémon is represented by
+        :param misc_info: Other assorted (optional) information about the Pokémon
+        :param name_id: Optional.  The name ID of the Pokémon,
+        if different than the one automatically generated based on name and variant.
+        :param base_id: Optional.  The base name ID of the Pokémon, separate from any variant,
+        if different than the one automatically generated based on the base name.
+        """
         self.name_id = format_name_as_id(name, variant) if name_id is None else name_id
         self.base_id = format_name_as_id(name, None) if base_id is None else base_id
         self.name = name
@@ -73,7 +90,13 @@ class PokemonData(IJsonExchangeable):
         }
 
 
+#
+
+
 class PokemonDataMap(Iterable[PokemonData]):
+    """
+    An indexed collection of Pokémon data
+    """
 
     def __init__(self, *data: PokemonData):
         self._items: List[PokemonData] = []

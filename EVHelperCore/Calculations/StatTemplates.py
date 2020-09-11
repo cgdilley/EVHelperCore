@@ -7,6 +7,16 @@ import itertools
 
 
 def get_combinations_for_value(stats: StatTemplate, value: int) -> Iterable[StatTemplate]:
+    """
+    Calculate all possible complete stat combinations that exist within the given stat template which result
+    in the given numerical stat value.
+
+    :param stats: The stat template to filter the set of all possible stat combinations by
+    :param value: The numerical stat value to calculate stat template combinations for
+    :return: A lazy generator for all possible stat combinations that result in the given numerical stat value,
+    restricted by the given stat template.  Stat combinations are represented by StatTemplate objects that are
+    considered "complete".
+    """
     evs = stats.ev if stats.ev is not None else range(0, EV.MAX + 1, 4)
     ivs = stats.iv if stats.iv is not None else range(0, IV.MAX + 1)
     natures = stats.nature if stats.nature is not None else {Nature.build_boosting(stats.stat),
@@ -17,12 +27,14 @@ def get_combinations_for_value(stats: StatTemplate, value: int) -> Iterable[Stat
 
     combinations = set()
 
+    # Used to safely yield only when a stat template is unique, by using this in combination with 'yield from'
     def _yield_unique(st: StatTemplate) -> Iterable[StatTemplate]:
         if st in combinations:
             return []
         combinations.add(st)
         return [st]
 
+    # Generalizes the reverse-engineering calculation for a particular missing value to calc
     def _calc_all_combinations(to_calc: str, calc_func: Callable) -> Iterable[StatTemplate]:
         # This weird stuff with known_keys is to ensure ordering, since dicts are unordered.
         # There is probably a way to clean this up to be more intuitive.
@@ -38,6 +50,7 @@ def get_combinations_for_value(stats: StatTemplate, value: int) -> Iterable[Stat
             for calc in calc_func(stat=stats.stat, value=value, **args):
                 yield from _yield_unique(StatTemplate(stat=stats.stat, **{**args, to_calc: calc}))
 
+    #
     if stats.base is None:
         yield from _calc_all_combinations(to_calc="base", calc_func=get_base_stat_from_value)
     if stats.ev is None:

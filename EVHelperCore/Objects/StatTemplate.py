@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 from EVHelperCore.Interfaces import IJsonExchangeable
-from EVHelperCore.Objects.Stats import Stat, Nature, NUMBER_STATS
+from EVHelperCore.Objects.Stats import Stat, Nature, NUMBER_STATS, check_number_stat
 from EVHelperCore.Exceptions import StatError
 
 from typing import Optional, Union, Iterable, List
 
 
 class StatTemplate(IJsonExchangeable):
+    """
+    A collection of restrictions on stat information options (EV, IV, level, nature, base stat), used as a filter
+    when calculating all the possible combinations of these that leads to a particular stat value.
+    For example, if you wanted to calculate what the base Speed stat of a Pokémon with a certain numerical Speed stat,
+    assuming that Pokémon has maximum EVs and a boosting nature (and at a particular level),
+    you can create a StatTemplate that includes those restrictions and come up with the result you want when passing
+    that StatTemplate to the relevant calculation functions.
+    """
 
     def __init__(self,
                  stat: Stat,
@@ -16,8 +24,15 @@ class StatTemplate(IJsonExchangeable):
                  iv: Optional[Union[int, Iterable[int]]] = None,
                  level: Optional[Union[int, Iterable[int]]] = None,
                  nature: Optional[Union[Nature, Iterable[Nature]]] = None):
-        if stat not in NUMBER_STATS:
-            raise StatError(f"Stat '{stat}' does not have a numerical value.")
+        """
+        :param stat: The stat to create the stat template for
+        :param base: The base stat value for the specified stat
+        :param ev: The EVs invested into the specified stat
+        :param iv: The IVs for the specified stat
+        :param level: The level of the Pokémon
+        :param nature: The stat-modifying nature of the Pokémon
+        """
+        check_number_stat(stat)
 
         def _standardize(val, expected_type: type):
             if val is None:
@@ -62,6 +77,10 @@ class StatTemplate(IJsonExchangeable):
         return super().__repr__()
 
     def is_complete(self) -> bool:
+        """
+        A stat template is considered complete when it has exactly one option for every stat information type
+        (EVs, IVs, etc.), and thus represents exactly one combination.
+        """
         return all(len(x) == 1 for x in (self.base, self.ev, self.iv, self.level, self.nature))
 
     @classmethod

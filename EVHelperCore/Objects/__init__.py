@@ -3,7 +3,7 @@ from EVHelperCore.Objects.Name import Name, VariantName, PrefixVariantName, Suff
 from EVHelperCore.Objects.Variant import Variant, Gender, MegaType, Region
 from EVHelperCore.Objects.Type import Type, Typing
 from EVHelperCore.Objects.Stats import Stat, Stats, StatModifier, BaseStats, EV, IV, Nature, \
-    NUMBER_STATS
+    NUMBER_STATS, check_number_stat
 from EVHelperCore.Objects.Ability import Ability, AbilityList
 from EVHelperCore.Objects.PokemonData import PokemonData, PokemonDataMap
 from EVHelperCore.Objects.Move import Move, MoveList

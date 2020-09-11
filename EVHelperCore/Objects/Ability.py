@@ -7,6 +7,9 @@ from typing import Optional, Iterable, Iterator, Tuple
 
 
 class Ability(IJsonExchangeable):
+    """
+    Represents a single passive ability that a Pokémon may have.
+    """
 
     def __init__(self, name: str):
         self.name = name
@@ -28,7 +31,14 @@ class Ability(IJsonExchangeable):
         return {"name": self.name}
 
 
+#
+
+
 class AbilityList(Iterable[Ability], IJsonExchangeable):
+    """
+    Represents the collection of primary, secondary, and hidden abilities available to a particular
+    species of Pokémon.
+    """
 
     def __init__(self, primary_ability: Ability,
                  secondary_ability: Optional[Ability] = None,

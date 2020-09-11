@@ -24,6 +24,11 @@ class Stat(Enum):
 NUMBER_STATS = {Stat.ATTACK, Stat.DEFENSE, Stat.SP_ATTACK, Stat.SP_DEFENSE, Stat.SPEED, Stat.HP}
 
 
+def check_number_stat(stat: Stat):
+    if stat not in NUMBER_STATS:
+        raise StatError(f"Stat '{stat}' does not have a numerical value.")
+
+
 class BaseStats(IJsonExchangeable, Iterable[Tuple[Stat, int]]):
 
     def __init__(self, attack: int,

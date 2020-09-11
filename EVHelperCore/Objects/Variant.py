@@ -45,12 +45,29 @@ class MegaType(Enum):
 
 
 class Variant(IJsonExchangeable):
+    """
+    Describes the particular variant of a Pokémon.  There are four categories of variants:
+
+    1. Region: A regional variant (eg. Alolan Ninetales)
+    2. Gender: A variant determined by the gender (eg. Indeedee female/male)
+    3. Mega: A mega form, with distinctions made for Mega X and Mega Y variants (eg. Mega Mewtwo X, Mega Mewtwo Y)
+    4. Form: All other species-specific variants (eg. Rotom-Heat)
+
+    If representing a Pokémon that is not a variant but rather the base version of that Pokémon, then all of these
+    categories will have their default values (eg. Region.NONE).  See is_base_variant()
+    """
 
     def __init__(self,
                  region: Region = Region.NONE,
                  gender: Gender = Gender.IRRELEVANT,
                  mega_type: MegaType = MegaType.NONE,
                  form: Optional[str] = None):
+        """
+        :param region:
+        :param gender:
+        :param mega_type:
+        :param form:
+        """
         self._region = region
         self._gender = gender
         self._mega_type = mega_type
@@ -114,6 +131,13 @@ class Variant(IJsonExchangeable):
     @property
     def form(self) -> Optional[str]:
         return self._form
+
+    #
+
+    def is_base_variant(self) -> bool:
+        return not self.is_form() and not self.is_mega() and not self.is_gender() and not self.is_regional()
+
+    #
 
     @classmethod
     def from_json(cls, obj: dict) -> Variant:

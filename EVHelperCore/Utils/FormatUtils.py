@@ -9,6 +9,15 @@ NAME_REGEX = re.compile(rf"^[{LETTER_CHARS}]+(['\-_][{LETTER_CHARS}]+)*$")
 
 def format_name_as_id(name: Name, variant: Optional[Variant] = None,
                       ignore_mega: bool = False) -> str:
+    """
+    Generates a standardized identifier for a Pokémon with the given name and variant.
+
+    :param name: The name of the Pokémon to generate the identifier for.
+    :param variant: The variant of the Pokémon to generate the identifier for.
+    :param ignore_mega: Optional.  Whether or not Mega variants should be represented in the
+    identifier.  Defaults to false.
+    :return: The generated standardized identifier.
+    """
     components = [name.base_name()]
     if variant:
         if variant.is_regional():

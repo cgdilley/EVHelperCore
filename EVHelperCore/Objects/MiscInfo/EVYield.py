@@ -8,6 +8,9 @@ from typing import Iterable, Tuple, Dict
 
 
 class EVYield(IJsonExchangeable):
+    """
+    Represents information about the number and type of EVs granted when a Pokémon is defeated.
+    """
 
     def __init__(self, *yields: Tuple[Stat, int]):
         if any(stat not in NUMBER_STATS or not (1 <= value <= 3) for stat, value in yields):

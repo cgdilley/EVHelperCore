@@ -124,6 +124,14 @@ _MEGA_CONVERSIONS_REVERSE = {showdown: mega_type for mega_type, showdown in _MEG
 
 
 def format_showdown_name(name: str, variant: Variant) -> str:
+    """
+    Determines the appropriate identifier for the Pokémon with the given name and variant as used on
+    Pokémon Showdown.
+
+    :param name: The name of the Pokémon to generate the Showdown name for.
+    :param variant: The variant of the Pokémon to generate the Showdown name for.
+    :return: The Showdown name for the Pokémon with the given name and variant.
+    """
     components = [name]
 
     if variant.is_regional():
