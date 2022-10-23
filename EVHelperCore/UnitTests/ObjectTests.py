@@ -176,7 +176,8 @@ class TestObjects(TestCase):
 
         # NATURES
 
-        nature = Nature(Stat.ATTACK, Stat.SP_ATTACK)
+        nature = Nature.Adamant
+        self.assertEqual(nature, Nature(Stat.ATTACK, Stat.SP_ATTACK))
         self.assertEqual("Adamant", nature.name)
         self.assertEqual(1.1, nature.get_modifier(Stat.ATTACK))
         self.assertEqual(0.9, nature.get_modifier(Stat.SP_ATTACK))

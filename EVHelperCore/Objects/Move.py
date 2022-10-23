@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from EVHelperCore.Interfaces import IJsonExchangeable
+from EVHelperCore.Objects.Type import Type
+from EVHelperCore.Objects.Stats import Stat
 
 
 class Move(IJsonExchangeable):
@@ -14,6 +16,16 @@ class Move(IJsonExchangeable):
 
     def to_json(self) -> dict:
         return {}
+
+
+class DamagingMove(Move):
+
+    def __init__(self, name: str, typ: Type, base_power: int, offense_stat: Stat, defense_stat: Stat):
+        self.name = name
+        self.type = typ
+        self.base_power = base_power
+        self.offense_stat = offense_stat
+        self.defense_stat = defense_stat
 
 
 class MoveList(IJsonExchangeable):
@@ -40,4 +52,3 @@ class MoveSet(IJsonExchangeable):
 
     def to_json(self) -> dict:
         return {}
-

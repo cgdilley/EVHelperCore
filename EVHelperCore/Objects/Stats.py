@@ -5,6 +5,7 @@ from EVHelperCore.Exceptions import StatError
 from EVHelperCore.Objects.Generation import Generation
 
 from enum import Enum
+from abc import ABCMeta
 from typing import Optional, Iterable, Dict, Set, Tuple, Iterator
 
 
@@ -106,6 +107,15 @@ class StatModifier:
     def __hash__(self) -> int:
         return hash((self.stat, self.modifier))
 
+    @property
+    def multiplier(self) -> float:
+        if self.stat not in NUMBER_STATS:
+            raise NotImplemented()
+        if self.modifier >= 0:
+            return (2 + self.modifier) / 2
+        else:
+            return 2 / (2 + self.modifier)
+
 
 #
 
@@ -146,56 +156,94 @@ class IV:
         return hash((self.stat, self.value))
 
 
-class Nature(IJsonExchangeable):
+NATURE_MAP = {
+    (Stat.ATTACK, Stat.ATTACK): "Hardy",
+    (Stat.ATTACK, Stat.DEFENSE): "Lonely",
+    (Stat.ATTACK, Stat.SP_ATTACK): "Adamant",
+    (Stat.ATTACK, Stat.SP_DEFENSE): "Naughty",
+    (Stat.ATTACK, Stat.SPEED): "Brave",
+    (Stat.DEFENSE, Stat.ATTACK): "Bold",
+    (Stat.DEFENSE, Stat.DEFENSE): "Docile",
+    (Stat.DEFENSE, Stat.SP_ATTACK): "Impish",
+    (Stat.DEFENSE, Stat.SP_DEFENSE): "Lax",
+    (Stat.DEFENSE, Stat.SPEED): "Relaxed",
+    (Stat.SP_ATTACK, Stat.ATTACK): "Modest",
+    (Stat.SP_ATTACK, Stat.DEFENSE): "Mild",
+    (Stat.SP_ATTACK, Stat.SP_ATTACK): "Bashful",
+    (Stat.SP_ATTACK, Stat.SP_DEFENSE): "Rash",
+    (Stat.SP_ATTACK, Stat.SPEED): "Quiet",
+    (Stat.SP_DEFENSE, Stat.ATTACK): "Calm",
+    (Stat.SP_DEFENSE, Stat.DEFENSE): "Gentle",
+    (Stat.SP_DEFENSE, Stat.SP_ATTACK): "Careful",
+    (Stat.SP_DEFENSE, Stat.SP_DEFENSE): "Quirky",
+    (Stat.SP_DEFENSE, Stat.SPEED): "Sassy",
+    (Stat.SPEED, Stat.ATTACK): "Timid",
+    (Stat.SPEED, Stat.DEFENSE): "Hasty",
+    (Stat.SPEED, Stat.SP_ATTACK): "Jolly",
+    (Stat.SPEED, Stat.SP_DEFENSE): "Naive",
+    (Stat.SPEED, Stat.SPEED): "Serious"
+}
+
+NATURE_MAP_REVERSED = {v.upper(): k for k, v in NATURE_MAP.items()}
+
+
+class _NatureMeta(ABCMeta):
+    Hardy: Nature
+    Lonely: Nature
+    Adamant: Nature
+    Naughty: Nature
+    Brave: Nature
+    Bold: Nature
+    Docile: Nature
+    Impish: Nature
+    Lax: Nature
+    Relaxed: Nature
+    Modest: Nature
+    Mild: Nature
+    Bashful: Nature
+    Rash: Nature
+    Quiet: Nature
+    Calm: Nature
+    Gentle: Nature
+    Careful: Nature
+    Quirky: Nature
+    Sassy: Nature
+    Timid: Nature
+    Hasty: Nature
+    Jolly: Nature
+    Naive: Nature
+    Serious: Nature
+
+    def __getattribute__(self, item):
+        if isinstance(item, str) and item.upper() in NATURE_MAP_REVERSED:
+            return Nature(*NATURE_MAP_REVERSED[item.upper()])
+        return super().__getattribute__(item)
+
+
+class Nature(IJsonExchangeable, metaclass=_NatureMeta):
 
     def __init__(self, plus_stat: Stat, minus_stat: Stat):
         for s in (plus_stat, minus_stat):
             if s not in NUMBER_STATS or s == Stat.HP:
                 raise StatError(f"Invalid stat for nature: '{s}'")
-        self.plus_stat = plus_stat
-        self.minus_stat = minus_stat
+        self._plus_stat = plus_stat
+        self._minus_stat = minus_stat
 
     def __eq__(self, o: object) -> bool:
-        return isinstance(o, Nature) and self.plus_stat == o.plus_stat and self.minus_stat == o.minus_stat
+        return isinstance(o, Nature) and self._plus_stat == o._plus_stat and self._minus_stat == o._minus_stat
 
     def __hash__(self) -> int:
-        return hash((self.plus_stat, self.minus_stat))
+        return hash((self._plus_stat, self._minus_stat))
 
     def __str__(self) -> str:
-        return f"{self.name}: +{self.plus_stat}, -{self.minus_stat}"
+        return f"{self.name}: +{self._plus_stat}, -{self._minus_stat}"
 
     def __repr__(self) -> str:
         return str(self)
 
     @property
     def name(self) -> str:
-        return {
-            (Stat.ATTACK, Stat.ATTACK): "Hardy",
-            (Stat.ATTACK, Stat.DEFENSE): "Lonely",
-            (Stat.ATTACK, Stat.SP_ATTACK): "Adamant",
-            (Stat.ATTACK, Stat.SP_DEFENSE): "Naughty",
-            (Stat.ATTACK, Stat.SPEED): "Brave",
-            (Stat.DEFENSE, Stat.ATTACK): "Bold",
-            (Stat.DEFENSE, Stat.DEFENSE): "Docile",
-            (Stat.DEFENSE, Stat.SP_ATTACK): "Impish",
-            (Stat.DEFENSE, Stat.SP_DEFENSE): "Lax",
-            (Stat.DEFENSE, Stat.SPEED): "Relaxed",
-            (Stat.SP_ATTACK, Stat.ATTACK): "Modest",
-            (Stat.SP_ATTACK, Stat.DEFENSE): "Mild",
-            (Stat.SP_ATTACK, Stat.SP_ATTACK): "Bashful",
-            (Stat.SP_ATTACK, Stat.SP_DEFENSE): "Rash",
-            (Stat.SP_ATTACK, Stat.SPEED): "Quiet",
-            (Stat.SP_DEFENSE, Stat.ATTACK): "Calm",
-            (Stat.SP_DEFENSE, Stat.DEFENSE): "Gentle",
-            (Stat.SP_DEFENSE, Stat.SP_ATTACK): "Careful",
-            (Stat.SP_DEFENSE, Stat.SP_DEFENSE): "Quirky",
-            (Stat.SP_DEFENSE, Stat.SPEED): "Sassy",
-            (Stat.SPEED, Stat.ATTACK): "Timid",
-            (Stat.SPEED, Stat.DEFENSE): "Hasty",
-            (Stat.SPEED, Stat.SP_ATTACK): "Jolly",
-            (Stat.SPEED, Stat.SP_DEFENSE): "Naive",
-            (Stat.SPEED, Stat.SPEED): "Serious"
-        }[(self.plus_stat, self.minus_stat)]
+        return NATURE_MAP[(self._plus_stat, self._minus_stat)]
 
     def get_modifier(self, stat: Stat) -> float:
         if self.is_boosting(stat):
@@ -206,10 +254,10 @@ class Nature(IJsonExchangeable):
             return 1
 
     def is_boosting(self, stat: Stat) -> bool:
-        return self.plus_stat == stat and self.minus_stat != stat
+        return self._plus_stat == stat and self._minus_stat != stat
 
     def is_hindering(self, stat: Stat) -> bool:
-        return self.minus_stat == stat and self.plus_stat != stat
+        return self._minus_stat == stat and self._plus_stat != stat
 
     def get_mod_as_string(self, stat: Stat) -> str:
         if self.is_boosting(stat):
@@ -242,8 +290,8 @@ class Nature(IJsonExchangeable):
 
     def to_json(self) -> dict:
         return {
-            "plus": self.plus_stat.name,
-            "minus": self.minus_stat.name,
+            "plus": self._plus_stat.name,
+            "minus": self._minus_stat.name,
             "name": self.name
         }
 
@@ -266,9 +314,10 @@ class Stats(IJsonExchangeable):
                     **{iv.stat: iv.value for iv in ivs}}
         self.level = level
         self.nature = nature
-        self._modifiers: Dict[Stat, int] = {stat: 0 for stat in Stat}
+        self._modifiers: Dict[Stat, StatModifier] = {stat: StatModifier(stat, 0) for stat in Stat
+                                                     if stat != Stat.HP}
         if modifiers:
-            self.add_modifiers(modifiers)
+            self.add_modifiers(*modifiers)
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o, Stats) and \
@@ -314,17 +363,19 @@ class Stats(IJsonExchangeable):
     def set_ev(self, ev: EV):
         self.ivs[ev.stat] = ev.value
 
-    def get_modifier(self, stat: Stat) -> int:
-        return self._modifiers[stat]
+    def get_modifier(self, stat: Stat, minimum: Optional[int] = None, maximum: Optional[int] = None) -> StatModifier:
+        m = self._modifiers[stat]
+        if minimum is not None and m.modifier < minimum:
+            return StatModifier(stat, minimum)
+        elif maximum is not None and m.modifier > maximum:
+            return StatModifier(stat, maximum)
+        return m
 
-    def add_modifier(self, stat_mod: StatModifier):
-        self._modifiers[stat_mod.stat] = StatModifier(stat_mod.stat,
-                                                      self._modifiers[stat_mod.stat] + stat_mod.modifier,
-                                                      adjust_to_cap=True).modifier
-
-    def add_modifiers(self, stat_mods: Iterable[StatModifier]):
-        for sm in stat_mods:
-            self.add_modifier(sm)
+    def add_modifiers(self, *stat_mods: StatModifier):
+        for stat_mod in stat_mods:
+            self._modifiers[stat_mod.stat] = StatModifier(stat_mod.stat,
+                                                          self._modifiers[stat_mod.stat].modifier + stat_mod.modifier,
+                                                          adjust_to_cap=True)
 
     @classmethod
     def from_json(cls, obj: dict) -> Stats:

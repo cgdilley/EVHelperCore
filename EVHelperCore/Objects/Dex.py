@@ -4,6 +4,7 @@ from EVHelperCore.Interfaces import IJsonExchangeable
 
 from enum import Enum
 from typing import Dict, Optional
+import itertools
 
 
 class Dex(Enum):
@@ -28,7 +29,23 @@ class Dex(Enum):
     GEN_7_LG = "Let's Go Pikachu/Let's Go Eevee"
     GEN_8 = "Sword/Shield"
     GEN_8_DLC1 = "The Isle of Armor"
+    GEN_8_DLC2 = "The Crown Tundra"
+    GEN_8_RM = "Brilliant Diamond/Shining Pearl"
+    GEN_8_LEG = "Legends: Arceus"
     NATIONAL = "National"
+
+    @staticmethod
+    def parse(s: str) -> Dex:
+        try:
+            return Dex(s)
+        except ValueError:
+            split = s.split("/")
+            for perm in itertools.permutations(split):
+                try:
+                    return Dex("/".join(perm))
+                except ValueError:
+                    pass
+            raise
 
 
 class DexEntry(IJsonExchangeable):

@@ -2,3 +2,5 @@
 build/
 evhelper_core.egg-info/
 *.lock
+**/__pycache__
+*.pyc

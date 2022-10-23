@@ -121,7 +121,7 @@ def get_evs_from_value(stat: Stat, base: int, iv: int, level: int, nature: Natur
         for ev in range(lower_bound, upper_bound):
             if ev not in evs:
                 evs.add(ev * 4)
-                yield ev
+                yield ev * 4
 
 
 #

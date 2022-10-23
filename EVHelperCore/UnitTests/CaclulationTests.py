@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from EVHelperCore.Calculations.Stats import *
 from EVHelperCore.Calculations.StatTemplates import get_combinations_for_value
+from EVHelperCore.Calculations.Damage import *
 
 import itertools
 
@@ -24,7 +25,7 @@ class TestCalculations(TestCase):
                               IV(Stat.SP_ATTACK, 16),
                               IV(Stat.SP_DEFENSE, 23),
                               IV(Stat.SPEED, 5)],
-                         nature=Nature(Stat.ATTACK, Stat.SP_ATTACK),
+                         nature=Nature.Adamant,
                          level=78,
                          modifiers=[])
 
@@ -103,3 +104,73 @@ class TestCalculations(TestCase):
         results = get_combinations_for_value(template, 1000)
         self.assertEqual(0, len(list(results)))
         self.assertTrue(all(r.is_complete() for r in results))
+
+    def test_damage(self):
+
+        base_stats = BaseStats(attack=130, defense=95, special_attack=80, special_defense=85, speed=102, hp=108)
+        garchomp = PokemonData(name=Name("Garchomp", dict()), variant=Variant(),
+                               typing=Typing(Type.DRAGON, Type.GROUND),
+                               stats=base_stats, abilities=AbilityList(Ability("Rough Skin")), move_list=MoveList(),
+                               dex_entries=DexEntryCollection(), misc_info=MiscInfo())
+        attacker = Pokemon(data=garchomp,
+                           moveset=MoveSet(),
+                           ability=Ability("Rough skin"),
+                           item="",
+                           stats=Stats(base_stats,
+                                       evs=[EV(stat, 0) for stat in NUMBER_STATS],
+                                       ivs=[IV(stat, 31) for stat in NUMBER_STATS],
+                                       nature=Nature.Adamant,
+                                       level=50,
+                                       modifiers=[]))
+        defender = Pokemon(data=garchomp,
+                           moveset=MoveSet(),
+                           ability=Ability("Rough skin"),
+                           item="",
+                           stats=Stats(base_stats,
+                                       evs=[EV(stat, 0) for stat in NUMBER_STATS],
+                                       ivs=[IV(stat, 31) for stat in NUMBER_STATS],
+                                       nature=Nature.Adamant,
+                                       level=50,
+                                       modifiers=[]))
+
+        move = DamagingMove("Earthquake", typ=Type.GROUND, base_power=100, offense_stat=Stat.ATTACK,
+                            defense_stat=Stat.DEFENSE)
+        self.assertListEqual([82, 82, 84, 85, 85, 87, 88, 88, 90, 91, 91, 93, 94, 94, 96, 97],
+                             list(calculate_damage(attacker, defender, move)))
+
+        move = DamagingMove("Dragon Claw", typ=Type.DRAGON, base_power=80, offense_stat=Stat.ATTACK,
+                            defense_stat=Stat.DEFENSE)
+        self.assertListEqual([132, 132, 134, 134, 138, 138, 140, 140, 144, 144, 146, 146, 150, 150, 152, 156],
+                             list(calculate_damage(attacker, defender, move)))
+
+        move = DamagingMove("Poison Jab", typ=Type.POISON, base_power=80, offense_stat=Stat.ATTACK,
+                            defense_stat=Stat.DEFENSE)
+        self.assertListEqual([22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 26],
+                             list(calculate_damage(attacker, defender, move)))
+
+        move = DamagingMove("Thunder Punch", typ=Type.ELECTRIC, base_power=75, offense_stat=Stat.ATTACK,
+                            defense_stat=Stat.DEFENSE)
+        self.assertListEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                             list(calculate_damage(attacker, defender, move)))
+
+        move = DamagingMove("Ice Beam", typ=Type.ICE, base_power=90, offense_stat=Stat.SP_ATTACK,
+                            defense_stat=Stat.SP_DEFENSE)
+        self.assertListEqual([116, 120, 120, 120, 124, 124, 124, 128, 128, 128, 132, 132, 132, 136, 136, 140],
+                             list(calculate_damage(attacker, defender, move)))
+
+        move = DamagingMove("Body Press", typ=Type.FIGHTING, base_power=80, offense_stat=Stat.DEFENSE,
+                            defense_stat=Stat.DEFENSE)
+        self.assertListEqual([31, 31, 32, 32, 32, 33, 33, 34, 34, 34, 35, 35, 35, 36, 36, 37],
+                             list(calculate_damage(attacker, defender, move)))
+
+        attacker.stats.add_modifiers(StatModifier(Stat.ATTACK, 2))
+        move = DamagingMove("Earthquake", typ=Type.GROUND, base_power=100, offense_stat=Stat.ATTACK,
+                            defense_stat=Stat.DEFENSE)
+        self.assertListEqual([162, 165, 166, 168, 169, 172, 174, 175, 178, 180, 181, 183, 186, 187, 189, 192],
+                             list(calculate_damage(attacker, defender, move)))
+
+        defender.stats.add_modifiers(StatModifier(Stat.DEFENSE, 4))
+        self.assertListEqual([55, 55, 57, 57, 58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66],
+                             list(calculate_damage(attacker, defender, move)))
+        # self.assertListEqual([],
+        #                      list(calculate_damage(attacker, defender, move, critical=True)))

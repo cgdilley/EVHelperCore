@@ -3,8 +3,8 @@ from __future__ import annotations
 from EVHelperCore.Objects.Name import Name
 from EVHelperCore.Objects.Ability import Ability, AbilityList
 from EVHelperCore.Objects.Type import Type, Typing
-from EVHelperCore.Objects.Move import Move, MoveList
-from EVHelperCore.Objects.Stats import Stats, BaseStats, Stat, NUMBER_STATS
+from EVHelperCore.Objects.Move import Move, MoveList, MoveSet
+from EVHelperCore.Objects.Stats import Stats, BaseStats, Stat, NUMBER_STATS, StatModifier
 from EVHelperCore.Objects.Variant import Variant
 from EVHelperCore.Objects.Dex import DexEntry, DexEntryCollection, Dex
 from EVHelperCore.Objects.MiscInfo import MiscInfo
@@ -160,3 +160,13 @@ class PokemonDataMap(Iterable[PokemonData]):
             if val in self.ev_yield_map[stat]:
                 yield from (pd for pd in self.ev_yield_map[stat][val] if not strict or
                             len(pd.misc_info.ev_yield.yields) == 1)
+
+
+class Pokemon:
+
+    def __init__(self, data: PokemonData, moveset: MoveSet, ability: Ability, item: str, stats: Stats):
+        self.data = data
+        self.moveset = moveset
+        self.ability = ability
+        self.item = item
+        self.stats = stats

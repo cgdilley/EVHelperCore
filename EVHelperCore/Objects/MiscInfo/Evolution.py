@@ -270,7 +270,7 @@ class ItemEvolutionType(EvolutionType):
     def to_json(self) -> dict:
         return {
             **super().to_json(),
-            "level": self.item
+            "item": self.item
         }
 
 

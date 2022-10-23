@@ -24,17 +24,19 @@ class Region(Enum):
     KALOS = "KALOS"
     ALOLA = "ALOLA"
     GALAR = "GALAR"
+    HISUI = "HISUI"
 
     @staticmethod
     def parse_descriptor(s: str) -> Region:
         return {
             "Galarian": Region.GALAR,
-            "Alolan": Region.ALOLA
+            "Alolan": Region.ALOLA,
+            "Hisuian": Region.HISUI
         }[s]
 
     @staticmethod
     def is_region_descriptor(s: str) -> bool:
-        return s in ("Galarian", "Alolan")
+        return s in ("Galarian", "Alolan", "Hisuian")
 
 
 class MegaType(Enum):
