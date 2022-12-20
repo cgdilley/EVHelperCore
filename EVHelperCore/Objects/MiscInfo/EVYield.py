@@ -21,6 +21,9 @@ class EVYield(IJsonExchangeable):
             for stat, val in yields
         }
 
+    def __str__(self) -> str:
+        return ", ".join(f"{stat.name}={val}" for stat, val in self.yields.items())
+
     @classmethod
     def from_json(cls, obj: dict) -> EVYield:
         return EVYield(*((Stat(stat), val) for stat, val in obj.items()))

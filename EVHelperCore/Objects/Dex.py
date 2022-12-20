@@ -102,6 +102,12 @@ class DexEntryCollection(IJsonExchangeable):
     def __repr__(self) -> str:
         return str(self)
 
+    def __contains__(self, dex: Dex) -> bool:
+        return dex in self.entries
+
+    def __getitem__(self, dex: Dex) -> Optional[DexEntry]:
+        return self.entries[dex] if dex in self.entries else None
+
     def add_entry(self, entry: DexEntry):
         self.entries[entry.dex] = entry
 
