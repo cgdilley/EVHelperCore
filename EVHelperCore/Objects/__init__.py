@@ -6,7 +6,7 @@ from EVHelperCore.Objects.Stats import Stat, Stats, StatModifier, BaseStats, EV,
     NUMBER_STATS, check_number_stat
 from EVHelperCore.Objects.Ability import Ability, AbilityList
 from EVHelperCore.Objects.PokemonData import PokemonData, PokemonDataMap, Pokemon
-from EVHelperCore.Objects.Move import Move, MoveList, DamagingMove, MoveSet
+from EVHelperCore.Objects.Move import Move, MoveList, DamagingMove, MoveSet, StatusMove, MoveProperties
 from EVHelperCore.Objects.MiscInfo import *
 from EVHelperCore.Objects.Dex import DexEntryCollection, DexEntry, Dex
 from EVHelperCore.Objects.StatTemplate import StatTemplate

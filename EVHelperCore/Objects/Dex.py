@@ -33,6 +33,7 @@ class Dex(Enum):
     GEN_8_RM = "Brilliant Diamond/Shining Pearl"
     GEN_8_LEG = "Legends: Arceus"
     GEN_9 = "Scarlet/Violet"
+    GEN_9_DLC1 = "The Teal Mask"
     NATIONAL = "National"
 
     @staticmethod
