@@ -153,6 +153,20 @@ class Variant(IJsonExchangeable):
     #
 
     @classmethod
+    def merge(cls, *variants: Variant) -> Variant:
+        result = Variant()
+        for v in variants:
+            if v.is_form():
+                result._form = v.form
+            if v.is_mega():
+                result._mega = v.mega_type
+            if v.is_gender():
+                result._gender = v.gender
+            if v.is_regional():
+                result._region = v.region
+        return result
+
+    @classmethod
     def from_json(cls, obj: dict) -> Variant:
         return Variant(region=Region(obj["region"]) if "region" in obj else Region.NONE,
                        mega_type=MegaType(obj["mega_type"]) if "mega_type" in obj else MegaType.NONE,

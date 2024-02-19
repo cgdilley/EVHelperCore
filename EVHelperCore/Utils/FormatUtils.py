@@ -21,10 +21,7 @@ def format_name_as_id(name: Name, variant: Optional[Variant] = None,
     components = [name.base_name()]
     if variant:
         if variant.is_regional():
-            if variant.region == Region.ALOLA:
-                components.insert(0, "ALOLAN")
-            elif variant.region == Region.GALAR:
-                components.insert(0, "GALARIAN")
+            components.insert(0, variant.region.region_descriptor().upper())
         if variant.is_gender():
             if variant.gender == Gender.MALE:
                 components.append("M")

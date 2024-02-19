@@ -54,9 +54,10 @@ class TypeEffectivenessRecord(NamedTuple):
 
 
 ATTACK_EFFECTIVENESS: Dict[Type, TypeEffectivenessRecord] = {
-    Type.NORMAL: TypeEffectivenessRecord((),(Type.ROCK, Type.STEEL), (Type.GHOST,)),
-    Type.FIGHTING: TypeEffectivenessRecord((Type.NORMAL, Type.ROCK, Type.STEEL, Type.DARK, Type. ICE),
-                                     (Type.FLYING, Type.POISON, Type.BUG, Type.PSYCHIC, Type.FAIRY), (Type.GHOST,)),
+    Type.NORMAL: TypeEffectivenessRecord((), (Type.ROCK, Type.STEEL), (Type.GHOST,)),
+    Type.FIGHTING: TypeEffectivenessRecord((Type.NORMAL, Type.ROCK, Type.STEEL, Type.DARK, Type.ICE),
+                                           (Type.FLYING, Type.POISON, Type.BUG, Type.PSYCHIC, Type.FAIRY),
+                                           (Type.GHOST,)),
     Type.FLYING: TypeEffectivenessRecord((Type.BUG, Type.GRASS), (Type.ROCK, Type.STEEL, Type.ELECTRIC), ()),
     Type.POISON: TypeEffectivenessRecord((Type.GRASS, Type.FAIRY),
                                          (Type.POISON, Type.GROUND, Type.ROCK, Type.GHOST), (Type.STEEL,)),
@@ -122,6 +123,13 @@ class Typing(IJsonExchangeable, Iterable[Type]):
 
     def __iter__(self) -> Iterator[Type]:
         return iter(t for t in self.as_tuple() if t)
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o, Typing) and self.primary == o.primary and self.secondary == o.secondary and \
+            self.extra == o.extra
+
+    def __hash__(self) -> int:
+        return hash((self.primary, self.secondary, tuple(self.extra)))
 
     def has_type(self, t: Type) -> bool:
         return self.primary == t or self.secondary == t or t in self.extra

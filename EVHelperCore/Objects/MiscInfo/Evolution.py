@@ -37,9 +37,9 @@ class Evolution(IJsonExchangeable):
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o, Evolution) and \
-               self.from_id == o.from_id and \
-               self.to_id == o.to_id and \
-               self.evolution_type == o.evolution_type
+            self.from_id == o.from_id and \
+            self.to_id == o.to_id and \
+            self.evolution_type == o.evolution_type
 
     def __hash__(self) -> int:
         return hash((self.from_id, self.to_id, self.evolution_type))
@@ -184,7 +184,8 @@ class EvolutionType(IJsonExchangeable, ABC):
     @classmethod
     @abstractmethod
     def from_json(cls, obj: dict) -> EvolutionType:
-        for t in [LevelUpEvolutionType, UnknownEvolutionType, ItemEvolutionType]:
+        for t in [LevelUpEvolutionType, UnknownEvolutionType, ItemEvolutionType,
+                  TradingEvolutionType, FriendshipEvolutionType, MoveKnowledgeEvolutionType]:
             if obj["type"] == t.evo_type():
                 return t.from_json(obj)
         return UnknownEvolutionType()
@@ -202,13 +203,16 @@ class LevelUpEvolutionType(EvolutionType):
     An evolution triggered by leveling to a particular level
     """
 
-    def __init__(self, level: int):
+    def __init__(self, level: int, location: str = None):
         """
         :param level: The level that triggers evolution
         """
         self.level = level
+        self.location = location
 
     def __str__(self) -> str:
+        if self.location:
+            return f"Level up at level {self.level} in {self.location}"
         return f"Level up at level {self.level}"
 
     def __repr__(self) -> str:
@@ -216,10 +220,11 @@ class LevelUpEvolutionType(EvolutionType):
 
     def __eq__(self, o: LevelUpEvolutionType) -> int:
         return isinstance(o, LevelUpEvolutionType) and \
-               self.level == o.level
+            self.level == o.level and \
+            self.location == o.location
 
     def __hash__(self) -> int:
-        return hash((self.evo_type(), self.level))
+        return hash((self.evo_type(), self.level, self.location))
 
     @classmethod
     def evo_type(cls) -> str:
@@ -227,12 +232,13 @@ class LevelUpEvolutionType(EvolutionType):
 
     @classmethod
     def from_json(cls, obj: dict) -> LevelUpEvolutionType:
-        return LevelUpEvolutionType(obj["level"])
+        return LevelUpEvolutionType(obj["level"], obj.get("location", None))
 
     def to_json(self) -> dict:
         return {
             **super().to_json(),
-            "level": self.level
+            "level": self.level,
+            **({"location": self.location} if self.location else {})
         }
 
 
@@ -275,6 +281,95 @@ class ItemEvolutionType(EvolutionType):
 
 
 #
+
+
+class MoveKnowledgeEvolutionType(EvolutionType):
+    """
+    An evolution triggered by using a particular item
+    """
+
+    def __init__(self, move: str):
+        """
+        :param move: The move that needs to be known in order to trigger evolution
+        """
+        self.move = move
+
+    def __str__(self) -> str:
+        return f"Level up after learning {self.move}"
+
+    def __eq__(self, o: EvolutionType) -> int:
+        return isinstance(o, MoveKnowledgeEvolutionType) and self.move == o.move
+
+    def __hash__(self) -> int:
+        return hash((self.evo_type(), self.move))
+
+    @classmethod
+    def evo_type(cls) -> str:
+        return "move_known"
+
+    @classmethod
+    def from_json(cls, obj: dict) -> EvolutionType:
+        return MoveKnowledgeEvolutionType(obj["move"])
+
+    def to_json(self) -> dict:
+        return {
+            **super().to_json(),
+            "move": self.move
+        }
+
+
+class TradingEvolutionType(EvolutionType):
+
+    def __init__(self, holding: Optional[str]):
+        self.holding = holding
+
+    def __str__(self) -> str:
+        if self.holding:
+            return f"Trade while holding {self.holding}"
+        return "Trade"
+
+    def __eq__(self, o: EvolutionType) -> int:
+        return isinstance(o, TradingEvolutionType) and o.holding == self.holding
+
+    def __hash__(self) -> int:
+        return hash((self.evo_type(), self.holding))
+
+    @classmethod
+    def evo_type(cls) -> str:
+        return "trade"
+
+    @classmethod
+    def from_json(cls, obj: dict) -> EvolutionType:
+        return TradingEvolutionType(obj.get("holding", None))
+
+    def to_json(self) -> dict:
+        return {
+            **super().to_json(),
+            **({"holding": self.holding} if self.holding else {})
+        }
+
+
+class FriendshipEvolutionType(EvolutionType):
+
+    def __str__(self) -> str:
+        return "Friendship"
+
+    def __eq__(self, o: EvolutionType) -> int:
+        return isinstance(o, FriendshipEvolutionType)
+
+    def __hash__(self) -> int:
+        return hash(self.evo_type())
+
+    @classmethod
+    def evo_type(cls) -> str:
+        return "friendship"
+
+    @classmethod
+    def from_json(cls, obj: dict) -> FriendshipEvolutionType:
+        return FriendshipEvolutionType()
+
+    def to_json(self) -> dict:
+        return super().to_json()
 
 
 class UnknownEvolutionType(EvolutionType):
