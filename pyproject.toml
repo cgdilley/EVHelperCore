@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sprelf-pokemon-core"
+version = "2025.10.27.0"
+authors = [
+    { name = "Christopher Dilley", email = "me@sprelf.com" }
+]
+description = "Core definitions for Pokémon entities"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "tree-format"
+]
+license = "GPL-3.0-only"
+license-files = ["LICEN[SC]E.*"]
+
+
+[project.urls]
+repository = "https://github.com/cgdilley/EVHelperCore"
