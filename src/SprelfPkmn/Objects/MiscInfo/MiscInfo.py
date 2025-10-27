@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from EVHelperCore.Objects.MiscInfo.EVYield import EVYield
-from EVHelperCore.Objects.MiscInfo.Evolution import EvolutionLine
-from EVHelperCore.Objects.MiscInfo.EggGroup import EggGroup
-from EVHelperCore.Objects.MiscInfo.GenderRatio import GenderRatio
+from SprelfPkmn.Objects.MiscInfo.EVYield import EVYield
+from SprelfPkmn.Objects.MiscInfo.Evolution import EvolutionLine
+from SprelfPkmn.Objects.MiscInfo.EggGroup import EggGroup
+from SprelfPkmn.Objects.MiscInfo.GenderRatio import GenderRatio
 
 from SprelfJSON import JSONModel
 

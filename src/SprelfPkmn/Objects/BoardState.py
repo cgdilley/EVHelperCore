@@ -5,12 +5,12 @@ from typing import Optional, Iterable
 
 from SprelfJSON import JSONModel
 
-from EVHelperCore.Objects.Move import Move
-from EVHelperCore.Objects.Type import Typing
-from EVHelperCore.Objects.Ability import Ability
-from EVHelperCore.Objects.Stats import Stats
-from EVHelperCore.Objects.Item import Item
-from EVHelperCore.Objects.DamageModifier import DamageModifier
+from SprelfPkmn.Objects.Move import Move
+from SprelfPkmn.Objects.Type import Typing
+from SprelfPkmn.Objects.Ability import Ability
+from SprelfPkmn.Objects.Stats import Stats
+from SprelfPkmn.Objects.Item import Item
+from SprelfPkmn.Objects.DamageModifier import DamageModifier
 
 
 class Entity(JSONModel):

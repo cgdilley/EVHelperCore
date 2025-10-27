@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from EVHelperCore.Objects.Type import Type
-from EVHelperCore.Objects.Stats import Stat
+from SprelfPkmn.Objects.Type import Type
+from SprelfPkmn.Objects.Stats import Stat
 
 from enum import IntFlag
 from abc import ABC

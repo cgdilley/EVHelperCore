@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from EVHelperCore.Utils.DictUtils import unique_by
+from SprelfPkmn.Utils.DictUtils import unique_by
 
 from abc import ABC, abstractmethod
 from typing import Iterable

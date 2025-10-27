@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from EVHelperCore.Objects.Stats import Stat, NUMBER_STATS, StatError
+from SprelfPkmn.Objects.Stats import Stat, NUMBER_STATS, StatError
 
 from SprelfJSON import JSONConvertible, JSONObject
 

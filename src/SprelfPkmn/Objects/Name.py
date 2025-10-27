@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from EVHelperCore.Exceptions import LocalizationError
+from SprelfPkmn.Exceptions import LocalizationError
 
 from abc import ABC, abstractmethod
 

@@ -1,8 +1,8 @@
 from unittest import TestCase
 
-from EVHelperCore.Calculations.Stats import *
-from EVHelperCore.Calculations.StatTemplates import get_combinations_for_value
-from EVHelperCore.Calculations.Damage import *
+from SprelfPkmn.Calculations.Stats import *
+from SprelfPkmn.Calculations.StatTemplates import get_combinations_for_value
+from SprelfPkmn.Calculations.Damage import *
 
 import itertools
 

@@ -1,4 +1,4 @@
-from EVHelperCore.Objects import *
+from SprelfPkmn.Objects import *
 
 import math
 from typing import Iterable, Tuple

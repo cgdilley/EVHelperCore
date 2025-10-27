@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from EVHelperCore.Objects.Name import Name
-from EVHelperCore.Objects.Ability import Ability, AbilityList
-from EVHelperCore.Objects.Type import Type, Typing
-from EVHelperCore.Objects.Move import MoveList, MoveSet
-from EVHelperCore.Objects.Stats import Stats, BaseStats, Stat, NUMBER_STATS
-from EVHelperCore.Objects.Variant import Variant
-from EVHelperCore.Objects.Dex import DexEntryCollection, Dex
-from EVHelperCore.Objects.MiscInfo import MiscInfo
+from SprelfPkmn.Objects.Name import Name
+from SprelfPkmn.Objects.Ability import Ability, AbilityList
+from SprelfPkmn.Objects.Type import Type, Typing
+from SprelfPkmn.Objects.Move import MoveList, MoveSet
+from SprelfPkmn.Objects.Stats import Stats, BaseStats, Stat, NUMBER_STATS
+from SprelfPkmn.Objects.Variant import Variant
+from SprelfPkmn.Objects.Dex import DexEntryCollection, Dex
+from SprelfPkmn.Objects.MiscInfo import MiscInfo
 
 from typing import Iterable, Iterator
 

@@ -1,6 +1,6 @@
-from EVHelperCore.Calculations.Stats import get_evs_from_value, get_base_stat_from_value, get_stat_value, \
+from SprelfPkmn.Calculations.Stats import get_evs_from_value, get_base_stat_from_value, get_stat_value, \
     get_ivs_from_value
-from EVHelperCore.Objects import StatTemplate, EV_MAX, IV_MAX, Nature
+from SprelfPkmn.Objects import StatTemplate, EV_MAX, IV_MAX, Nature
 
 from typing import Iterable, Callable
 import itertools

@@ -1,7 +1,7 @@
 from unittest import TestCase
 
-from EVHelperCore.Objects import *
-from EVHelperCore.Exceptions import *
+from SprelfPkmn.Objects import *
+from SprelfPkmn.Exceptions import *
 
 
 class TestObjects(TestCase):

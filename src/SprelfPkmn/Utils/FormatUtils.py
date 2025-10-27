@@ -1,4 +1,4 @@
-from EVHelperCore.Objects import Name, Variant, Region, Gender, MegaType
+from SprelfPkmn.Objects import Name, Variant, Region, Gender, MegaType
 
 import re
 from typing import Optional

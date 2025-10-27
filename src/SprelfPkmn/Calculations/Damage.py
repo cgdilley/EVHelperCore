@@ -1,5 +1,5 @@
-from EVHelperCore.Objects import *
-from EVHelperCore.Calculations.Stats import get_stat_value_from_info
+from SprelfPkmn.Objects import *
+from SprelfPkmn.Calculations.Stats import get_stat_value_from_info
 
 from typing import Iterable
 

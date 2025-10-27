@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from SprelfJSON import JSONModel
 
-from EVHelperCore.Objects.Stats import Stat, Nature, StatError
+from SprelfPkmn.Objects.Stats import Stat, Nature, StatError
 
 from typing import Iterable
 

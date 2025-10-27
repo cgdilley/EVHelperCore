@@ -1,5 +1,5 @@
 
-from EVHelperCore.Objects import Name, VariantName, Variant, Region, MegaType, Gender
+from SprelfPkmn.Objects import Name, VariantName, Variant, Region, MegaType, Gender
 
 
 _FORM_CONVERSIONS = {
