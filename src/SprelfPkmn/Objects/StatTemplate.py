@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from SprelfJSON import JSONModel
+from SprelfJSON import JSONModel, JSONModelError, JSONConvertible
 
-from SprelfPkmn.Objects.Stats import Stat, Nature, StatError
+from SprelfPkmn.Objects.Stats import Stat, Nature, StatError, TrainedValue, StatPoint
 
-from typing import Iterable
+from typing import Iterable, Any, Collection
 
 
 class StatTemplate(JSONModel):
@@ -18,7 +18,7 @@ class StatTemplate(JSONModel):
     """
     stat: Stat
     base: list[int] | None = None
-    ev: list[int] | None = None
+    ev: list[TrainedValue] | None = None
     iv: list[int] | None = None
     level: list[int] | None = None
     nature: list[Nature] | None = None
@@ -26,7 +26,7 @@ class StatTemplate(JSONModel):
     def __init__(self,
                  stat: Stat,
                  base: int | Iterable[int] | None = None,
-                 ev: int | Iterable[int] | None = None,
+                 ev: int | TrainedValue | Iterable[int] | Iterable[TrainedValue] | None = None,
                  iv: int | Iterable[int] | None = None,
                  level: int | Iterable[int] | None = None,
                  nature: Nature | Iterable[Nature] | None = None):
@@ -39,17 +39,35 @@ class StatTemplate(JSONModel):
         :param nature: The stat-modifying nature of the Pokémon
         """
 
-        def _standardize(val, expected_type: type):
+        def _standardize(val: Any, expected_type: type):
             if val is None:
                 return None
-            if type(val) == expected_type:
+            if isinstance(val, dict) and issubclass(expected_type, JSONConvertible):
+                try:
+                    val = expected_type.from_json(val)
+                except JSONModelError:
+                    pass
+            if isinstance(val, expected_type):
                 return [val]
-            if len(val) == 0:
-                return None
-            return sorted(list(val)) if hasattr(expected_type, "__cmp__") else list(val)
+            if isinstance(val, int) and issubclass(expected_type, TrainedValue):
+                return [StatPoint(number=val)]
+            if isinstance(val, Collection):
+                if len(val) == 0:
+                    return None
+                if all(isinstance(v, dict) for v in val) and issubclass(expected_type, JSONConvertible):
+                    try:
+                        val = [expected_type.from_json(v) for v in val]
+                    except JSONModelError:
+                        pass
+                if all(isinstance(v, expected_type) for v in val):
+                    return sorted(list(val)) if hasattr(expected_type, "__cmp__") else list(val)
+                elif issubclass(expected_type, TrainedValue) and all(isinstance(v, int) for v in val):
+                    return sorted((StatPoint(number=v) for v in val), key=lambda v: v.number)
+            raise ValueError(f"Unable to standardize value of type '{type(val).__name__}' "
+                             f"to list of expected type '{expected_type.__name__}'")
 
         super().__init__(stat=stat, base=_standardize(base, int),
-                         ev=_standardize(ev, int),
+                         ev=_standardize(ev, TrainedValue),
                          iv=_standardize(iv, int),
                          level=_standardize(level, int),
                          nature=_standardize(nature, Nature))
@@ -72,7 +90,7 @@ class StatTemplate(JSONModel):
         return " | ".join("%s = %s" % (k, v) for k, v in
                           (("stat", self.stat),
                            ("base", ", ".join(str(b) for b in self.base)),
-                           ("ev", ", ".join(str(e) for e in self.ev)),
+                           ("ev", ", ".join(str(e.number) for e in self.ev)),
                            ("iv", ", ".join(str(i) for i in self.iv)),
                            ("level", ", ".join(str(level) for level in self.level)),
                            ("nature", ", ".join(n.get_mod_as_string(self.stat) for n in self.nature)))

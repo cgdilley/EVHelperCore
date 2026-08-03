@@ -54,6 +54,7 @@ class MegaType(Enum):
     NORMAL = "NORMAL"
     X = "X"
     Y = "Y"
+    Z = "Z"
 
 
 class Variant(JSONModel):

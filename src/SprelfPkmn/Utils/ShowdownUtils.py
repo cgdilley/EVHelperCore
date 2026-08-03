@@ -159,7 +159,8 @@ _MEGA_CONVERSIONS = {
     MegaType.NONE: None,
     MegaType.NORMAL: "Mega",
     MegaType.X: "Mega-X",
-    MegaType.Y: "Mega-Y"
+    MegaType.Y: "Mega-Y",
+    MegaType.Z: "Mega-Z"
 }
 
 _MEGA_CONVERSIONS_REVERSE = {showdown: mega_type for mega_type, showdown in _MEGA_CONVERSIONS.items()}

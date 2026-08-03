@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from SprelfPkmn.Objects.CompetitiveInfo import CompetitiveInfo, Regulation
 from SprelfPkmn.Objects.Name import Name
 from SprelfPkmn.Objects.Ability import Ability, AbilityList
 from SprelfPkmn.Objects.Type import Type, Typing
@@ -8,10 +9,11 @@ from SprelfPkmn.Objects.Stats import Stats, BaseStats, Stat, NUMBER_STATS
 from SprelfPkmn.Objects.Variant import Variant
 from SprelfPkmn.Objects.Dex import DexEntryCollection, Dex
 from SprelfPkmn.Objects.MiscInfo import MiscInfo
+from SprelfPkmn.Objects.Item import Item
 
 from typing import Iterable, Iterator
 
-from SprelfJSON import JSONModel
+from SprelfJSON import JSONModel, ModelElem
 
 
 class PokemonData(JSONModel):
@@ -40,7 +42,8 @@ class PokemonData(JSONModel):
     move_list: MoveList
     dex_entries: DexEntryCollection
     misc_info: MiscInfo
-    name_id: str | None = None,
+    competitive_info: CompetitiveInfo | None = None
+    name_id: str | None = None
     base_id: str | None = None
 
     def __str__(self) -> str:
@@ -60,6 +63,9 @@ class PokemonQueryable(Iterable[PokemonData]):
 
     def __iter__(self) -> Iterator[PokemonData]:
         return iter(self._items)
+
+    def list(self) -> list[PokemonData]:
+        return list(self._items)
 
     def typing(self, t: Type) -> PokemonQueryable:
         return PokemonQueryable(x for x in self._items
@@ -94,6 +100,10 @@ class PokemonQueryable(Iterable[PokemonData]):
         return PokemonQueryable(x for x in self._items
                                 if x.variant.is_mega() == b)
 
+    def regulation(self, regulation: Regulation) -> PokemonQueryable:
+        return PokemonQueryable(x for x in self._items
+                                if x.competitive_info and regulation in x.competitive_info.regulations)
+
 
 class PokemonDataMap(PokemonQueryable):
     """
@@ -113,6 +123,7 @@ class PokemonDataMap(PokemonQueryable):
         self.ev_yield_map: dict[Stat, dict[int, list[PokemonData]]] = \
             {s: dict() for s in NUMBER_STATS}
         self.dex_map: dict[Dex, list[PokemonData]] = dict()
+        self.regulations_map: dict[Regulation, list[PokemonData]] = dict()
         for d in self._items:
             self._index_item(d)
 
@@ -140,6 +151,9 @@ class PokemonDataMap(PokemonQueryable):
         if d.misc_info.ev_yield:
             for stat, val in d.misc_info.ev_yield.yields.items():
                 self.ev_yield_map[stat].setdefault(val, []).append(d)
+        if d.competitive_info:
+            for regulation in d.competitive_info.regulations:
+                self.regulations_map.setdefault(regulation, []).append(d)
 
     def name(self, name: str) -> PokemonQueryable:
         return PokemonQueryable(self.name_map.get(name, []))
@@ -170,6 +184,9 @@ class PokemonDataMap(PokemonQueryable):
     def dex(self, dex: Dex) -> PokemonQueryable:
         return PokemonQueryable(self.dex_map.get(dex, []))
 
+    def regulation(self, regulation: Regulation) -> PokemonQueryable:
+        return PokemonQueryable(self.regulations_map.get(regulation, []))
+
 
 #
 
@@ -178,5 +195,5 @@ class Pokemon(JSONModel):
     data: PokemonData
     moveset: MoveSet
     ability: Ability
-    item: str
     stats: Stats
+    item: Item | None

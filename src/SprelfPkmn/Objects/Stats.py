@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from enum import Enum
-from abc import ABCMeta
-from typing import Iterable, Iterator
+from abc import ABCMeta, ABC, abstractmethod
+from typing import Iterable, Iterator, Hashable
 
-from SprelfJSON import JSONModel, JSONConvertible, JSONObject
+from SprelfJSON import JSONModel, JSONConvertible, JSONObject, AbstractJSONModel
 
 
 class Stat(Enum):
@@ -122,26 +122,100 @@ class StatModifier(JSONModel):
 
 #
 
-EV_MAX = 252
 
+class TrainedValue(AbstractJSONModel, Hashable, ABC):
+    number: int
 
-class EV(JSONModel):
-    stat: Stat
-    value: int
+    @abstractmethod
+    def value(self, level: int = 50) -> int:
+        ...
 
-    def __init__(self, stat: Stat, value: int, round_off: bool = False):
-        if stat not in NUMBER_STATS:
-            raise StatError(f"Cannot apply EVs to stat '{stat}'.")
-        if (not round_off and value % 4 != 0) or not (0 <= value <= EV_MAX):
-            raise StatError(f"Invalid EV value: {value}")
-        value = value if not round_off else ((value // 4) * 4)
-        super().__init__(stat=stat, value=value)
+    @classmethod
+    @abstractmethod
+    def limit(cls) -> int:
+        ...
 
-    def __eq__(self, o: object) -> bool:
-        return isinstance(o, EV) and self.stat == o.stat and self.value == o.value
+    @classmethod
+    @abstractmethod
+    def total_limit(cls) -> int:
+        ...
+
+    def is_legal(self) -> bool:
+        return 0 <= self.number <= self.limit()
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, TrainedValue) and self.value() == other.value()
 
     def __hash__(self) -> int:
-        return hash((self.stat, self.value))
+        return hash(self.number)
+
+
+class EVValue(TrainedValue):
+
+    def __init__(self, number: int, round_off: bool = False):
+        if not round_off and number % 4 != 0:
+            raise StatError(f"Invalid EV value: {number}")
+        number = number if not round_off else ((number // 4) * 4)
+        super().__init__(number=number)
+
+    def value(self, level: int = 50) -> int:
+        if level != 50:
+            raise NotImplementedError()
+        return (self.number + 4) // 8
+
+    @classmethod
+    def limit(cls) -> int:
+        return 252
+
+    @classmethod
+    def total_limit(cls) -> int:
+        return 508
+
+
+class StatPoint(TrainedValue):
+    def value(self, level: int = 50) -> int:
+        if level != 50:
+            raise NotImplementedError()
+        return self.number
+
+    @classmethod
+    def limit(cls) -> int:
+        return 32
+
+    @classmethod
+    def total_limit(cls) -> int:
+        return 66
+
+
+class EV(JSONModel, Hashable):
+    stat: Stat
+    number: TrainedValue
+
+    def __init__(self, stat: Stat, number: int | TrainedValue):
+        if stat not in NUMBER_STATS:
+            raise StatError(f"Cannot apply EVs to stat '{stat}'.")
+        if isinstance(number, int):
+            number = StatPoint(number=number)
+        if not (0 <= number.number <= number.limit()):
+            raise StatError(f"Invalid EV value for value type '{type(number).__name__}: {number}")
+        super().__init__(stat=stat, number=number)
+
+    def value(self, level: int = 50) -> int:
+        return self.number.value(level=level)
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o, EV) and self.stat == o.stat and self.value() == o.value()
+
+    def __hash__(self) -> int:
+        return hash((self.stat, self.value()))
+
+    @classmethod
+    def is_legal(cls, *evs: EV):
+        if len(evs) == 0:
+            return True
+        if not all(isinstance(ev.number, type(evs[0].number)) for ev in evs):
+            return False
+        return sum(ev.number.number for ev in evs) <= type(evs[0].number).total_limit()
 
 
 IV_MAX = 31
@@ -310,7 +384,7 @@ class Nature(JSONConvertible, metaclass=_NatureMeta):
 
 class Stats(JSONModel):
     base: BaseStats
-    evs: dict[Stat, int]
+    evs: dict[Stat, TrainedValue]
     ivs: dict[Stat, int]
     level: int
     nature: Nature
@@ -322,10 +396,14 @@ class Stats(JSONModel):
            ivs: Iterable[IV],
            nature: Nature,
            level: int,
-           modifiers: Iterable[StatModifier] | None = None):
+           modifiers: Iterable[StatModifier] | None = None,
+           enforce_legality: bool = True):
+        ev_list = list(evs)
+        if enforce_legality and not EV.is_legal(*ev_list):
+            raise ValueError(f"Invalid EVs: {ev_list}")
         return Stats(base=base,
                      evs={**{stat: 0 for stat in NUMBER_STATS},
-                          **{ev.stat: ev.value for ev in evs}},
+                          **{ev.stat: ev.number for ev in ev_list}},
                      ivs={**{stat: IV_MAX for stat in NUMBER_STATS},
                           **{iv.stat: iv.value for iv in ivs}},
                      nature=nature,
@@ -372,7 +450,7 @@ class Stats(JSONModel):
         return self.evs[stat]
 
     def set_ev(self, ev: EV):
-        self.ivs[ev.stat] = ev.value
+        self.evs[ev.stat] = ev.value(level=self.level)
 
     def get_modifier(self, stat: Stat, minimum: int | None = None, maximum: int | None = None) -> StatModifier:
         m = self.modifiers.get(stat, 0)

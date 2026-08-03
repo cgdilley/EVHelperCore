@@ -159,12 +159,17 @@ class TestObjects(TestCase):
 
         # EVs
 
-        self.assertEqual(252, EV(Stat.ATTACK, EV_MAX).value)
-        self.assertEqual(248, EV(Stat.ATTACK, EV_MAX - 1, round_off=True).value)
+        self.assertEqual(32, EV(Stat.ATTACK, StatPoint.limit()).number.number)
+        self.assertEqual(252, EV(Stat.ATTACK, EVValue(number=EVValue.limit())).number.number)
+        self.assertEqual(248, EV(Stat.ATTACK, EVValue(number=EVValue.limit() - 1, round_off=True)).number.number)
+        for stat, fail_value in [(Stat.ATTACK, -1),
+                                 (Stat.ATTACK, 33), (Stat.CRITICAL, 0)]:
+            with self.assertRaises(StatError):
+                _ = EV(stat, fail_value)
         for stat, fail_value in [(Stat.ATTACK, 1), (Stat.ATTACK, -1), (Stat.ATTACK, -4),
                                  (Stat.ATTACK, 256), (Stat.CRITICAL, 0)]:
             with self.assertRaises(StatError):
-                _ = EV(stat, fail_value)
+                _ = EV(stat, EVValue(number=fail_value))
 
         # IVs
 
@@ -193,12 +198,12 @@ class TestObjects(TestCase):
         # Example from https://bulbapedia.bulbagarden.net/wiki/Statistic#Determination_of_stats
         garchomp = Stats.of(base=BaseStats(attack=130, defense=95, special_attack=80,
                                            special_defense=85, speed=102, hp=108),
-                            evs=[EV(Stat.HP, 74, round_off=True),
-                              EV(Stat.ATTACK, 190, round_off=True),
-                              EV(Stat.DEFENSE, 91, round_off=True),
-                              EV(Stat.SP_ATTACK, 48, round_off=True),
-                              EV(Stat.SP_DEFENSE, 84, round_off=True),
-                              EV(Stat.SPEED, 23, round_off=True)],
+                            evs=[EV(Stat.HP, EVValue(number=74, round_off=True)),
+                              EV(Stat.ATTACK, EVValue(number=190, round_off=True)),
+                              EV(Stat.DEFENSE, EVValue(number=91, round_off=True)),
+                              EV(Stat.SP_ATTACK, EVValue(number=48, round_off=True)),
+                              EV(Stat.SP_DEFENSE, EVValue(number=84, round_off=True)),
+                              EV(Stat.SPEED, EVValue(number=23, round_off=True))],
                             ivs=[IV(Stat.HP, 24),
                               IV(Stat.ATTACK, 12),
                               IV(Stat.DEFENSE, 30),
@@ -219,12 +224,12 @@ class TestObjects(TestCase):
                 "HP": 108
             },
             "evs": {
-                "ATTACK": 188,
-                "DEFENSE": 88,
-                "SP_ATTACK": 48,
-                "SP_DEFENSE": 84,
-                "SPEED": 20,
-                "HP": 72
+                "ATTACK": {"__name": "EVValue", "number": 188},
+                "DEFENSE": {"__name": "EVValue", "number": 88},
+                "SP_ATTACK": {"__name": "EVValue", "number": 48},
+                "SP_DEFENSE": {"__name": "EVValue", "number": 84},
+                "SPEED": {"__name": "EVValue", "number": 20},
+                "HP": {"__name": "EVValue", "number": 72}
             },
             "ivs": {
                 "ATTACK": 12,
@@ -278,7 +283,7 @@ class TestObjects(TestCase):
     def test_stat_template(self):
 
         st1 = StatTemplate(stat=Stat.HP, base=100, ev=0, iv=0, level=50, nature=Nature(Stat.ATTACK, Stat.ATTACK))
-        st_json1 = {"stat": "HP", "base": [100], "ev": [0], "iv": [0], "level": [50],
+        st_json1 = {"stat": "HP", "base": [100], "ev": [{"__name": "StatPoint", "number": 0}], "iv": [0], "level": [50],
                     "nature": [{"plus": "ATTACK", "minus": "ATTACK", "name": "Hardy"}]}
         self.assertTrue(st1.is_complete())
         self.assertDictEqual(st_json1, st1.to_json())

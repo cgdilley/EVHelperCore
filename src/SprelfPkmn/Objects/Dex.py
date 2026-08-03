@@ -39,6 +39,7 @@ class Dex(Enum):
     GEN_9_DLC1 = "The Teal Mask"
     GEN_9_DLC2 = "The Indigo Disk"
     GEN_9_LEG = "Legends: Z-A"
+    GEN_9_LEG_DLC = "Mega Dimension"
     NATIONAL = "National"
 
     @staticmethod

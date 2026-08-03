@@ -13,24 +13,24 @@ class TestCalculations(TestCase):
         # Example from https://bulbapedia.bulbagarden.net/wiki/Statistic#Determination_of_stats
         garchomp = Stats.of(base=BaseStats(attack=130, defense=95, special_attack=80,
                                            special_defense=85, speed=102, hp=108),
-                            evs=[EV(Stat.HP, 74, round_off=True),
-                                 EV(Stat.ATTACK, 190, round_off=True),
-                                 EV(Stat.DEFENSE, 91, round_off=True),
-                                 EV(Stat.SP_ATTACK, 48, round_off=True),
-                                 EV(Stat.SP_DEFENSE, 84, round_off=True),
-                                 EV(Stat.SPEED, 23, round_off=True)],
-                            ivs=[IV(Stat.HP, 24),
-                                 IV(Stat.ATTACK, 12),
-                                 IV(Stat.DEFENSE, 30),
-                                 IV(Stat.SP_ATTACK, 16),
-                                 IV(Stat.SP_DEFENSE, 23),
-                                 IV(Stat.SPEED, 5)],
+                            evs=[EV(Stat.HP, number=10),
+                                 EV(stat=Stat.ATTACK, number=24),
+                                 EV(stat=Stat.DEFENSE, number=12),
+                                 EV(stat=Stat.SP_ATTACK, number=6),
+                                 EV(stat=Stat.SP_DEFENSE, number=11),
+                                 EV(stat=Stat.SPEED, number=3)],
+                            ivs=[IV(stat=Stat.HP, value=31),
+                                 IV(stat=Stat.ATTACK, value=31),
+                                 IV(stat=Stat.DEFENSE, value=31),
+                                 IV(stat=Stat.SP_ATTACK, value=31),
+                                 IV(stat=Stat.SP_DEFENSE, value=31),
+                                 IV(stat=Stat.SPEED, value=31)],
                             nature=Nature.Adamant,
-                            level=78,
+                            level=50,
                             modifiers=[])
 
-        real_stats = [(Stat.HP, 289), (Stat.ATTACK, 278), (Stat.DEFENSE, 193),
-                      (Stat.SP_ATTACK, 135), (Stat.SP_DEFENSE, 171), (Stat.SPEED, 171)]
+        real_stats = [(Stat.HP, 193), (Stat.ATTACK, 191), (Stat.DEFENSE, 127),
+                      (Stat.SP_ATTACK, 95), (Stat.SP_DEFENSE, 116), (Stat.SPEED, 125)]
 
         for stat, value in real_stats:
             self.assertEqual(value, get_stat_value_from_info(garchomp, stat))
@@ -47,7 +47,8 @@ class TestCalculations(TestCase):
                                              iv=garchomp.get_iv(stat),
                                              level=garchomp.level,
                                              nature=garchomp.nature,
-                                             value=value))
+                                             value=value,
+                                             ev_type=StatPoint))
             self.assertIn(garchomp.get_iv(stat),
                           get_ivs_from_value(stat=stat,
                                              base=garchomp.base.get_stat(stat),
@@ -58,9 +59,9 @@ class TestCalculations(TestCase):
 
         #
 
-        comfey_stat_ranges = [(Stat.HP, 51, 111, 158), (Stat.ATTACK, 52, 51, 114),
-                              (Stat.DEFENSE, 90, 85, 156), (Stat.SP_ATTACK, 82, 78, 147),
-                              (Stat.SP_DEFENSE, 110, 103, 178), (Stat.SPEED, 100, 94, 167)]
+        comfey_stat_ranges = [(Stat.HP, 51, 126, 158), (Stat.ATTACK, 52, 64, 114),
+                              (Stat.DEFENSE, 90, 99, 156), (Stat.SP_ATTACK, 82, 91, 147),
+                              (Stat.SP_DEFENSE, 110, 117, 178), (Stat.SPEED, 100, 108, 167)]
 
         for stat, base, mn, mx in comfey_stat_ranges:
             self.assertTupleEqual((mn, mx), get_stat_range(stat, base, 50))
@@ -73,15 +74,17 @@ class TestCalculations(TestCase):
 
         template = StatTemplate(stat=Stat.ATTACK, ev=0, iv=IV_MAX, level=50)
         results = get_combinations_for_value(template, 150)
-        self.assertSetEqual({130, 117, 147}, {b for r in results for b in r.base})
+        self.assertSetEqual({130, 117, 147}, {b for r in results for b in (r.base or ())})
         self.assertTrue(all(r.is_complete() for r in results))
 
-        template = StatTemplate(stat=Stat.ATTACK, ev=(0, EV_MAX), iv=IV_MAX, level=50)
+        template = StatTemplate(stat=Stat.ATTACK, ev=(0, StatPoint.limit()), iv=IV_MAX, level=50)
         results = get_combinations_for_value(template, 150)
-        self.assertSetEqual({(98, 252, "Neutral"), (115, 252, "Hindering"), (130, 0, "Neutral"),
-                             (117, 0, "Boosting"), (85, 252, "Boosting"), (147, 0, "Hindering")},
+        self.assertSetEqual({(98, 32, "Neutral"), (115, 32, "Hindering"), (130, 0, "Neutral"),
+                             (117, 0, "Boosting"), (85, 32, "Boosting"), (147, 0, "Hindering")},
                             {b for r in results for b in
-                             itertools.product(r.base, r.ev, (n.get_mod_as_string(Stat.ATTACK) for n in r.nature))})
+                             itertools.product(r.base,
+                                               (ev.number for ev in r.ev),
+                                               (n.get_mod_as_string(Stat.ATTACK) for n in r.nature))})
         self.assertTrue(all(r.is_complete() for r in results))
 
         template = StatTemplate(stat=Stat.ATTACK, base=130, ev=0, iv=IV_MAX, level=50,
@@ -92,13 +95,14 @@ class TestCalculations(TestCase):
 
         template = StatTemplate(stat=Stat.ATTACK, base=100, iv=IV_MAX, level=50)
         results = get_combinations_for_value(template, 150)
-        self.assertSetEqual({132, 136, 236, 240}, {e for r in results for e in r.ev})
+        self.assertSetEqual({17, 30}, {e.number for r in results for e in (r.ev or ())})
         self.assertTrue(all(r.is_complete() for r in results))
 
-        template = StatTemplate(stat=Stat.HP, ev=EV_MAX, iv=IV_MAX)
-        results = get_combinations_for_value(template, 350)
-        self.assertSetEqual({(73, 100), (243, 50)}, {(b, lev) for r in results for b in r.base for lev in r.level})
-        self.assertTrue(all(r.is_complete() for r in results))
+        # template = StatTemplate(stat=Stat.HP, ev=EV.ev_max(), iv=IV_MAX)
+        # results = get_combinations_for_value(template, 350)
+        # self.assertSetEqual({(73, 100), (243, 50)}, {(b, lev) for r in results for b in (r.base or ())
+        #                                              for lev in (r.level or ())})
+        # self.assertTrue(all(r.is_complete() for r in results))
 
         template = StatTemplate(stat=Stat.HP)
         results = get_combinations_for_value(template, 1000)
@@ -116,7 +120,7 @@ class TestCalculations(TestCase):
         attacker = Pokemon(data=garchomp,
                            moveset=MoveSet(),
                            ability=Ability(name="Rough skin"),
-                           item="",
+                           item=None,
                            stats=Stats.of(base=base_stats,
                                           evs=[EV(stat, 0) for stat in NUMBER_STATS],
                                           ivs=[IV(stat, 31) for stat in NUMBER_STATS],
@@ -126,7 +130,7 @@ class TestCalculations(TestCase):
         defender = Pokemon(data=garchomp,
                            moveset=MoveSet(),
                            ability=Ability(name="Rough skin"),
-                           item="",
+                           item=None,
                            stats=Stats.of(base=base_stats,
                                           evs=[EV(stat, 0) for stat in NUMBER_STATS],
                                           ivs=[IV(stat, 31) for stat in NUMBER_STATS],

@@ -1,6 +1,7 @@
+from SprelfPkmn import EV
 from SprelfPkmn.Calculations.Stats import get_evs_from_value, get_base_stat_from_value, get_stat_value, \
     get_ivs_from_value
-from SprelfPkmn.Objects import StatTemplate, EV_MAX, IV_MAX, Nature
+from SprelfPkmn.Objects import StatTemplate, IV_MAX, Nature, StatPoint, TrainedValue
 
 from typing import Iterable, Callable
 import itertools
@@ -17,7 +18,7 @@ def get_combinations_for_value(stats: StatTemplate, value: int) -> Iterable[Stat
     restricted by the given stat template.  Stat combinations are represented by StatTemplate objects that are
     considered "complete".
     """
-    evs = stats.ev if stats.ev is not None else range(0, EV_MAX + 1, 4)
+    evs = stats.ev if stats.ev is not None else [StatPoint(number=i) for i in range(0, StatPoint.limit() + 1)]
     ivs = stats.iv if stats.iv is not None else range(0, IV_MAX + 1)
     natures = stats.nature if stats.nature is not None else {Nature.build_boosting(stats.stat),
                                                              Nature.build_neutral(),
@@ -42,12 +43,13 @@ def get_combinations_for_value(stats: StatTemplate, value: int) -> Iterable[Stat
                  if k != to_calc}
         known_keys = list(known.keys())
 
-        # This creates a collection of all possible combinations of all of the values in all of the separate
+        # This creates a collection of all possible combinations of all values in all separate
         # collections of values, as tuples... eg. (ev, iv, nature, level)
         combos = itertools.product(*(known[k] for k in known_keys))
         for combo in combos:
             args = {known_keys[i]: combo_val for i, combo_val in enumerate(combo)}
-            for calc in calc_func(stat=stats.stat, value=value, **args):
+            for calc in calc_func(stat=stats.stat, value=value, **args,
+                                  **({"ev_type": StatPoint} if to_calc == "ev" else {})):
                 yield from _yield_unique(StatTemplate(stat=stats.stat, **{**args, to_calc: calc}))
 
     #

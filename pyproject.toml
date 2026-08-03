@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sprelf-pokemon-core"
-version = "2025.10.27.0"
+version = "2026.08.02.0"
 authors = [
     { name = "Christopher Dilley", email = "me@sprelf.com" }
 ]
@@ -16,11 +16,15 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 dependencies = [
-    "tree-format"
+    "tree-format",
+    "sprelf-json"
 ]
 license = "GPL-3.0-only"
 license-files = ["LICEN[SC]E.*"]
 
-
 [project.urls]
 repository = "https://github.com/cgdilley/EVHelperCore"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["SprelfPkmn*"]
