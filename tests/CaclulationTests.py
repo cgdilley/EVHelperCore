@@ -3,6 +3,7 @@ from unittest import TestCase
 from SprelfPkmn.Calculations.Stats import *
 from SprelfPkmn.Calculations.StatTemplates import get_combinations_for_value
 from SprelfPkmn.Calculations.Damage import *
+from SprelfPkmn.Objects import *
 
 import itertools
 
@@ -119,7 +120,7 @@ class TestCalculations(TestCase):
                                dex_entries=DexEntryCollection.of(), misc_info=MiscInfo())
         attacker = Pokemon(data=garchomp,
                            moveset=MoveSet(),
-                           ability=Ability(name="Rough skin"),
+                           ability=garchomp.abilities.primary,
                            item=None,
                            stats=Stats.of(base=base_stats,
                                           evs=[EV(stat, 0) for stat in NUMBER_STATS],
@@ -129,7 +130,7 @@ class TestCalculations(TestCase):
                                           modifiers=[]))
         defender = Pokemon(data=garchomp,
                            moveset=MoveSet(),
-                           ability=Ability(name="Rough skin"),
+                           ability=garchomp.abilities.primary,
                            item=None,
                            stats=Stats.of(base=base_stats,
                                           evs=[EV(stat, 0) for stat in NUMBER_STATS],
@@ -137,40 +138,138 @@ class TestCalculations(TestCase):
                                           nature=Nature.Adamant,
                                           level=50,
                                           modifiers=[]))
+        board_state = BoardState(entities=[])
 
-        move = DamagingMove(name="Earthquake", type=Type.GROUND, base_power=100, offense_stat=Stat.ATTACK)
+        eq = DamagingMove(name="Earthquake", type=Type.GROUND, base_power=100, offense_stat=Stat.ATTACK,
+                          properties=MoveProperties.MULTI_TARGET)
+        stomping = DamagingMove(name="Stomping Tantrum", type=Type.GROUND, base_power=75, offense_stat=Stat.ATTACK)
+        d_claw = DamagingMove(name="Dragon Claw", type=Type.DRAGON, base_power=80, offense_stat=Stat.ATTACK)
+        poison_jab = DamagingMove(name="Poison Jab", type=Type.POISON, base_power=80, offense_stat=Stat.ATTACK)
+        ice_beam = DamagingMove(name="Ice Beam", type=Type.ICE, base_power=90, offense_stat=Stat.SP_ATTACK)
+        t_punch = DamagingMove(name="Thunder Punch", type=Type.ELECTRIC, base_power=75, offense_stat=Stat.ATTACK)
+        f_punch = DamagingMove(name="Fire Punch", type=Type.FIRE, base_power=75, offense_stat=Stat.ATTACK)
+        body_press = DamagingMove(name="Body Press", type=Type.FIGHTING, base_power=80, offense_stat=Stat.DEFENSE,
+                                  defense_stat=Stat.DEFENSE)
+        trailblaze = DamagingMove(name="Trailblaze", type=Type.GRASS, base_power=50, offense_stat=Stat.ATTACK)
+        fish_rend = DamagingMove(name="Fishious Rend", type=Type.WATER, base_power=170, offense_stat=Stat.ATTACK,
+                                 properties=MoveProperties.BITING)
+
+        self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
+                             list(get_damage_rolls(attacker, defender, move=eq, board_state=board_state)))
+        board_state.is_doubles = False
         self.assertListEqual([82, 82, 84, 85, 85, 87, 88, 88, 90, 91, 91, 93, 94, 94, 96, 97],
-                             list(calculate_damage(attacker, defender, move)))
+                             list(get_damage_rolls(attacker, defender, move=eq, board_state=board_state)))
+        # 0+ Atk Garchomp Earthquake vs. 0 HP / 0 Def Garchomp: 82-97 (44.8 - 53%) -- 26.17% chance to 2HKO
+        board_state.is_doubles = True
 
-        move = DamagingMove(name="Dragon Claw", type=Type.DRAGON, base_power=80, offense_stat=Stat.ATTACK)
+        self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state)))
+
         self.assertListEqual([132, 132, 134, 134, 138, 138, 140, 140, 144, 144, 146, 146, 150, 150, 152, 156],
-                             list(calculate_damage(attacker, defender, move)))
+                             list(get_damage_rolls(attacker, defender, move=d_claw, board_state=board_state)))
 
-        move = DamagingMove(name="Poison Jab", type=Type.POISON, base_power=80, offense_stat=Stat.ATTACK)
         self.assertListEqual([22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 26],
-                             list(calculate_damage(attacker, defender, move)))
+                             list(get_damage_rolls(attacker, defender, move=poison_jab, board_state=board_state)))
 
-        move = DamagingMove(name="Thunder Punch", type=Type.ELECTRIC, base_power=75, offense_stat=Stat.ATTACK)
         self.assertListEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                             list(calculate_damage(attacker, defender, move)))
+                             list(get_damage_rolls(attacker, defender, move=t_punch, board_state=board_state)))
 
-        move = DamagingMove(name="Ice Beam", type=Type.ICE, base_power=90, offense_stat=Stat.SP_ATTACK)
+        # Test weather
+        self.assertListEqual([20, 21, 21, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24],
+                             list(get_damage_rolls(attacker, defender, move=f_punch, board_state=board_state)))
+        board_state.weather = Weather.SUN
+        self.assertListEqual([31, 31, 31, 32, 32, 32, 33, 33, 33, 34, 34, 35, 35, 35, 36, 36],
+                             list(get_damage_rolls(attacker, defender, move=f_punch, board_state=board_state)))
+        board_state.weather = Weather.RAIN
+        self.assertListEqual([10, 10, 10, 10, 10, 10, 10, 11, 11, 11, 11, 11, 11, 11, 11, 12],
+                             list(get_damage_rolls(attacker, defender, move=f_punch, board_state=board_state)))
+        board_state.weather = Weather.NONE
+
+        # Test terrain
+        self.assertListEqual([28, 28, 28, 29, 29, 29, 30, 30, 30, 31, 31, 31, 32, 32, 32, 33],
+                             list(get_damage_rolls(attacker, defender, move=trailblaze, board_state=board_state)))
+        board_state.terrain = Terrain.GRASSY
+        self.assertListEqual([36, 36, 37, 37, 38, 38, 39, 39, 39, 40, 40, 41, 41, 42, 42, 43],
+                             list(get_damage_rolls(attacker, defender, move=trailblaze, board_state=board_state)))
+        board_state.terrain = Terrain.NONE
+
+        # Test screens
+        board_state.effects = [BoardEffect(type=BoardEffectType.REFLECT,
+                                           targets=[Entity(typing=defender.data.typing,
+                                                           ability=defender.ability,
+                                                           stats=defender.stats,
+                                                           team=1,
+                                                           item=defender.item)])]
+        self.assertListEqual([41, 42, 42, 43, 43, 44, 44, 45, 45, 46, 46, 47, 47, 48, 48, 49],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state)))
+        board_state.is_doubles = False
+        self.assertListEqual([30, 31, 31, 32, 32, 33, 33, 33, 33, 34, 34, 35, 35, 36, 36, 36],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state)))
+        board_state.is_doubles = True
+        board_state.effects = [BoardEffect(type=BoardEffectType.AURORA_VEIL,
+                                           targets=[Entity(typing=defender.data.typing,
+                                                           ability=defender.ability,
+                                                           stats=defender.stats,
+                                                           team=1,
+                                                           item=defender.item)])]
+        self.assertListEqual([41, 42, 42, 43, 43, 44, 44, 45, 45, 46, 46, 47, 47, 48, 48, 49],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state)))
+        board_state.effects = [BoardEffect(type=BoardEffectType.LIGHT_SCREEN,
+                                           targets=[Entity(typing=defender.data.typing,
+                                                           ability=defender.ability,
+                                                           stats=defender.stats,
+                                                           team=1,
+                                                           item=defender.item)])]
+        self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state)))
+        self.assertListEqual([77, 80, 80, 80, 83, 83, 83, 85, 85, 85, 88, 88, 88, 91, 91, 93],
+                             list(get_damage_rolls(attacker, defender, move=ice_beam, board_state=board_state)))
+        # 0- SpA Garchomp Ice Beam vs. 0 HP / 0 SpD Garchomp through Light Screen: 77-93 (42 - 50.8%) -- 1.95% chance to 2HKO
+        board_state.effects = []
         self.assertListEqual([116, 120, 120, 120, 124, 124, 124, 128, 128, 128, 132, 132, 132, 136, 136, 140],
-                             list(calculate_damage(attacker, defender, move)))
+                             list(get_damage_rolls(attacker, defender, move=ice_beam, board_state=board_state)))
+        # 0- SpA Garchomp Ice Beam vs. 0 HP / 0 SpD Garchomp: 116-140 (63.3 - 76.5%) -- guaranteed 2HKO
 
-        move = DamagingMove(name="Body Press", type=Type.FIGHTING, base_power=80, offense_stat=Stat.DEFENSE,
-                            defense_stat=Stat.DEFENSE)
         self.assertListEqual([31, 31, 32, 32, 32, 33, 33, 34, 34, 34, 35, 35, 35, 36, 36, 37],
-                             list(calculate_damage(attacker, defender, move)))
+                             list(get_damage_rolls(attacker, defender, move=body_press, board_state=board_state)))
+
+        # Test ability effects
+        self.assertListEqual([92, 93, 94, 95, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 109],
+                             list(get_damage_rolls(attacker, defender, move=fish_rend, board_state=board_state)))
+        attacker.ability = Ability(name="Strong Jaw")
+        self.assertListEqual([137, 139, 140, 142, 144, 145, 147, 149, 150, 152, 153, 155, 157, 158, 160, 162],
+                             list(get_damage_rolls(attacker, defender, move=fish_rend, board_state=board_state)))
+        # 0+ Atk Strong Jaw Garchomp Crunch (170 BP) vs. 0 HP / 0 Def Garchomp: 137-162 (74.8 - 88.5%) -- guaranteed 2HKO
+        defender.ability = Ability(name="Water Absorb")
+        self.assertListEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                             list(get_damage_rolls(attacker, defender, move=fish_rend, board_state=board_state)))
+        defender.ability = Ability(name="Levitate")
+        self.assertListEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state)))
+        attacker.ability = attacker.data.abilities.primary
+        defender.ability = defender.data.abilities.primary
 
         attacker.stats.add_modifiers(StatModifier(Stat.ATTACK, 2))
-        move = DamagingMove(name="Earthquake", type=Type.GROUND, base_power=100, offense_stat=Stat.ATTACK,
-                            defense_stat=Stat.DEFENSE)
-        self.assertListEqual([162, 165, 166, 168, 169, 172, 174, 175, 178, 180, 181, 183, 186, 187, 189, 192],
-                             list(calculate_damage(attacker, defender, move)))
+        self.assertListEqual([121, 123, 124, 126, 127, 129, 130, 132, 133, 135, 136, 138, 139, 141, 142, 144],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state)))
 
         defender.stats.add_modifiers(StatModifier(Stat.DEFENSE, 4))
-        self.assertListEqual([55, 55, 57, 57, 58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66],
-                             list(calculate_damage(attacker, defender, move)))
-        # self.assertListEqual([],
-        #                      list(calculate_damage(attacker, defender, move, critical=True)))
+        self.assertListEqual([42, 42, 42, 43, 43, 43, 45, 45, 45, 46, 46, 46, 48, 48, 48, 49],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state)))
+        # +2 0+ Atk Garchomp Stomping Tantrum vs. +4 0 HP / 0 Def Garchomp: 42-49 (22.9 - 26.7%) -- 30.99% chance to 4HKO
+        self.assertListEqual([183, 184, 187, 189, 192, 193, 196, 198, 199, 202, 204, 207, 208, 211, 213, 216],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state,
+                                                   critical=True)))
+        # +2 0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp on a critical hit: 183-216 (100 - 118%) -- guaranteed OHKO
+
+        defender.stats.add_modifiers(StatModifier(Stat.DEFENSE, -5))  # To -1
+        self.assertListEqual([184, 186, 189, 190, 193, 195, 196, 199, 201, 204, 205, 208, 210, 213, 214, 217],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state)))
+        # +2 0+ Atk Garchomp Stomping Tantrum vs. -1 0 HP / 0 Def Garchomp: 184-217 (100.5 - 118.5%) -- guaranteed OHKO
+        attacker.stats.add_modifiers(StatModifier(Stat.ATTACK, -4))  # To -2
+        self.assertListEqual([46, 46, 48, 48, 48, 49, 49, 51, 51, 51, 52, 52, 52, 54, 54, 55],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state)))
+        self.assertListEqual([138, 139, 141, 142, 145, 147, 148, 150, 151, 153, 154, 156, 157, 159, 160, 163],
+                             list(get_damage_rolls(attacker, defender, move=stomping, board_state=board_state,
+                                                   critical=True)))
+        # 0+ Atk Garchomp Stomping Tantrum vs. -1 0 HP / 0 Def Garchomp on a critical hit: 138-163 (75.4 - 89%) -- guaranteed 2HKO

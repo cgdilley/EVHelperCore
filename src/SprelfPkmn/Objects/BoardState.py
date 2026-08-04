@@ -5,12 +5,10 @@ from typing import Optional, Iterable
 
 from SprelfJSON import JSONModel
 
-from SprelfPkmn.Objects.Move import Move
 from SprelfPkmn.Objects.Type import Typing
 from SprelfPkmn.Objects.Ability import Ability
 from SprelfPkmn.Objects.Stats import Stats
 from SprelfPkmn.Objects.Item import Item
-from SprelfPkmn.Objects.DamageModifier import DamageModifier
 
 
 class Entity(JSONModel):
@@ -73,19 +71,16 @@ class BoardEffectType(Enum):
 
 class BoardEffect(JSONModel):
     type: BoardEffectType
-    targets: Iterable[Entity]
+    targets: list[Entity]
 
 
 class BoardState(JSONModel):
-    entities: Iterable[Entity]
+    entities: list[Entity]
     terrain: Terrain = Terrain.NONE
     weather: Weather = Weather.NONE
     room: Room = Room.NONE
-    effects: Iterable[BoardEffect] | None = None
+    effects: list[BoardEffect] = []
+    is_doubles: bool = True
 
     def get_effects_for_entity(self, entity: Entity) -> Iterable[BoardEffect]:
         yield from (e for e in self.effects if entity in e.targets)
-
-    def get_damage_modifiers(self, source: Entity, targets: Iterable[Entity], move: Move) -> Iterable[DamageModifier]:
-        yield from []
-

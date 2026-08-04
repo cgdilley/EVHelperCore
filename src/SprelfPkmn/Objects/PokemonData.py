@@ -110,7 +110,7 @@ class PokemonDataMap(PokemonQueryable):
     An indexed collection of Pokémon data
     """
 
-    def __init__(self, *data: PokemonData):
+    def __init__(self, data: Iterable[PokemonData]):
         super().__init__(data)
         self._items: list[PokemonData] = list(self._items)
         self.name_map: dict[str, list[PokemonData]] = dict()

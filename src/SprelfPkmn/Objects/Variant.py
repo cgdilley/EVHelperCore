@@ -74,8 +74,6 @@ class Variant(JSONModel):
     mega_type: MegaType = MegaType.NONE
     form: Optional[str] = None
 
-
-
     def __eq__(self, other: Variant) -> bool:
         return other is not None and \
                self.region == other.region and \

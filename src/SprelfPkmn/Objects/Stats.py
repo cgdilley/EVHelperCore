@@ -117,7 +117,7 @@ class StatModifier(JSONModel):
         if self.modifier >= 0:
             return (2 + self.modifier) / 2
         else:
-            return 2 / (2 + self.modifier)
+            return 2 / (2 - self.modifier)
 
 
 #

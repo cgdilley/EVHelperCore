@@ -11,3 +11,4 @@ from SprelfPkmn.Objects.MiscInfo import *
 from SprelfPkmn.Objects.Dex import DexEntryCollection, DexEntry, Dex
 from SprelfPkmn.Objects.StatTemplate import StatTemplate
 from SprelfPkmn.Objects.CompetitiveInfo import CompetitiveInfo, Regulation, Regulation
+from SprelfPkmn.Objects.BoardState import BoardState, Entity, Terrain, Weather, Room, BoardEffectType, BoardEffect

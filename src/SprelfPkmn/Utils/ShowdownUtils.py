@@ -187,3 +187,25 @@ def format_name(name: str, variant: Variant) -> str:
         components.append(_MEGA_CONVERSIONS[variant.mega_type])
 
     return "-".join(c for c in components if c)
+
+
+def parse_showdown_name(name: str) -> tuple[str, Variant]:
+    if name in ("Ho-oh",):
+        return name
+    split = name.split("-")
+    base = split[0]
+    v = Variant()
+    for i, s in enumerate(split[1:]):
+        if r := _REGION_CONVERSIONS_REVERSE.get(s):
+            v.region = r
+        if g := _GENDER_CONVERSIONS_REVERSE.get(s):
+            v.gender = g
+        if f := _FORM_CONVERSIONS_REVERSE.get((base, s)):
+            v.form = f
+        if s == "Mega":
+            v.mega_type = MegaType.NORMAL
+            if i < len(split) - 2:
+                combined = f"{s}-{split[i+2]}"
+                if m := _MEGA_CONVERSIONS_REVERSE.get(combined):
+                    v.mega_type = m
+    return base, v
