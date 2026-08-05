@@ -96,12 +96,14 @@ class StatModifier(JSONModel):
     stat: Stat
     modifier: int
 
-    def __init__(self, stat: Stat, modifier: int, adjust_to_cap: bool = False):
+    def __init__(self, stat: Stat, modifier: int, adjust_to_cap: bool = True):
         mod_min = -6 if stat != Stat.CRITICAL else 0
         mod_max = 6 if stat != Stat.CRITICAL else 3
-        if stat == stat.HP or (not adjust_to_cap and not (mod_min <= modifier <= mod_max)):
-            raise StatError(f"Invalid stat modifier: {stat} | {modifier}")
-        modifier = mod_min if modifier < mod_min else mod_max if modifier > mod_max else modifier
+        # if stat == stat.HP or (not adjust_to_cap and not (mod_min <= modifier <= mod_max)):
+        #     raise StatError(f"Invalid stat modifier: {stat} | {modifier}")
+        if adjust_to_cap:
+            modifier = mod_min if modifier < mod_min else mod_max if modifier > mod_max else modifier
+
         super().__init__(stat=stat, modifier=modifier)
 
     def __eq__(self, o: object) -> bool:

@@ -36,6 +36,7 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
         if cond.stat == move.defense_stat and not cond.for_attacker:
             d_stat *= cond.multiplier
 
+    immune = False
     # Get base power
     base_power = move.base_power
 
@@ -44,6 +45,7 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
                                                                board_state=board_state))
     for cond in base_power_conditions:
         base_power = rounding_mult(base_power, cond.multiplier, hard_round=False)
+        immune |= cond.multiplier == 0
 
     # BASELINE DAMAGE CALC BEFORE DAMAGE MODIFIERS
     level_factor = ((2 * attacker.stats.level) // 5) + 2
@@ -68,6 +70,7 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
             continue
         weather_mult *= c.multiplier
     base_value = rounding_mult(base_value, weather_mult, hard_round=False)
+    immune |= weather_mult == 0
 
     # Critical
     base_value = rounding_mult(base_value,
@@ -88,6 +91,7 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
 
     # Type effectiveness (applied later)
     typing_multiplier = Type.get_damage_multiplier(move.type, defender.data.typing)
+    immune |= typing_multiplier == 0
 
     rolls: list[int] = []
     if base_value == 0 or typing_multiplier == 0:
@@ -111,8 +115,9 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
                 if isinstance(cond, WeatherDamageCondition):
                     continue
                 value = rounding_mult(value, cond.multiplier, hard_round=False)
+                immune |= cond.multiplier == 0
 
-            rolls.append(value)
+            rolls.append(0 if immune else max(value, 1))
 
     return DamageReport(rolls=rolls,
                         move=move,
@@ -156,85 +161,175 @@ class DamageReport(JSONModel):
     conditions: list[CalculationCondition]
 
     def __str__(self) -> str:
-        return " ".join(self.get_report_components())
+        return " ".join(self.get_report_components()).replace(" :", ":")
 
     def __repr__(self) -> str:
         return str(self)
 
+    @property
+    def max_roll(self) -> int:
+        return self.rolls[-1]
+
+    @property
+    def min_roll(self) -> int:
+        return self.rolls[0]
+
     def get_report_components(self) -> Iterable[str]:
-        # Stat modifiers
-        stat_stages = self.attacker.stats.modifiers.get(self.move.offense_stat, 0)
-        if stat_stages > 0:
-            yield f"+{stat_stages}"
-        elif stat_stages < 0:
-            yield f"{stat_stages}"
+        if self.max_roll > 0:
+            # Stat modifiers
+            stat_stages = self.attacker.stats.modifiers.get(self.move.offense_stat, 0)
+            if stat_stages > 0:
+                yield f"+{stat_stages}"
+            elif stat_stages < 0 and not self.critical:
+                yield f"{stat_stages}"
 
-        # EVs and Nature for attacker
-        yield self._get_ev_component(self.attacker.stats, self.move.offense_stat)
+            # EVs and Nature for attacker
+            yield self._get_ev_component(self.attacker.stats, self.move.offense_stat)
 
-        # Item modifiers
-        yield from (c.item.name for c in self._get_conditions(ItemCondition)
-                    if getattr(c, "for_attacker", True))
+            # Item modifiers
+            yield from (c.item.name for c in self._get_conditions(ItemCondition)
+                        if getattr(c, "for_attacker", True))
 
-        # Ability modifiers
-        yield from (c.ability.name for c in self._get_conditions(AbilityCondition)
-                    if getattr(c, "for_attacker", True))
+            # Ability modifiers
+            yield from (c.ability.name for c in self._get_conditions(AbilityCondition)
+                        if getattr(c, "for_attacker", True))
 
         # Pokemon and Move
         yield ShowdownUtils.format_name(self.attacker.data.name.base_name(),
                                                     self.attacker.data.variant)
         yield self.move.name
 
+        if self.max_roll > 0:
+            base_power_conds = [bpc for bpc in self._get_conditions(BasePowerCondition)
+                                if bpc.innate]
+            if len(base_power_conds) > 0:
+                base_power = self.move.base_power
+                for bpc in base_power_conds:
+                    base_power = rounding_mult(base_power, bpc.multiplier, hard_round=False)
+                yield f"({base_power} BP)"
+
         yield "vs."
 
-        # Stat modifiers for defender
-        stat_stages = self.defender.stats.modifiers.get(self.move.defense_stat, 0)
-        if stat_stages > 0:
-            yield f"+{stat_stages}"
-        elif stat_stages < 0:
-            yield f"{stat_stages}"
+        if self.max_roll > 0:
+            # Stat modifiers for defender
+            stat_stages = self.defender.stats.modifiers.get(self.move.defense_stat, 0)
+            if stat_stages > 0 and not self.critical:
+                yield f"+{stat_stages}"
+            elif stat_stages < 0:
+                yield f"{stat_stages}"
 
-        # EVs and Nature for defender
-        hp_evs = self.defender.stats.evs[Stat.HP].number
-        yield f"{hp_evs} HP /"
-        yield self._get_ev_component(self.defender.stats, self.move.defense_stat)
+            # EVs and Nature for defender
+            hp_evs = self.defender.stats.evs[Stat.HP].number
+            yield f"{hp_evs} HP"
+            yield "/"
+            yield self._get_ev_component(self.defender.stats, self.move.defense_stat)
 
-        # Item modifiers
-        yield from (c.item.name for c in self._get_conditions(ItemCondition)
-                    if not getattr(c, "for_attacker", True))
+            # Item modifiers
+            yield from (c.item.name for c in self._get_conditions(ItemCondition)
+                        if not getattr(c, "for_attacker", True))
 
         # Ability modifiers
         yield from (c.ability.name for c in self._get_conditions(AbilityCondition)
-                    if not getattr(c, "for_attacker", True))
+                    if not getattr(c, "for_attacker", True)
+                    and (self.max_roll > 0
+                         or any(math.isclose(getattr(c, "multiplier", -1), 0)
+                                for c in self._get_conditions(AbilityCondition))))
 
-        yield f"{ShowdownUtils.format_name(self.defender.data.name.base_name(), self.defender.data.variant)}:"
+        yield f"{ShowdownUtils.format_name(self.defender.data.name.base_name(), self.defender.data.variant)}"
 
-        # Weather modifiers
-        weathers = {c.weather for c in self._get_conditions(WeatherCondition)}
-        if len(weathers) > 1:
-            raise ValueError("Multiple weather conditions found")
-        if len(weathers) > 0:
-            w = next(iter(weathers))
-            w_name = " ".join(p.lower().capitalize() for p in w.name.split("_"))
-            yield f"in {w_name}"
+        if self.max_roll > 0:
+            # Weather modifiers
+            weathers = {c.weather for c in self._get_conditions(WeatherCondition)}
+            if len(weathers) > 1:
+                raise ValueError("Multiple weather conditions found")
+            if len(weathers) > 0:
+                w = next(iter(weathers))
+                w_name = " ".join(p.lower().capitalize() for p in w.name.split("_"))
+                yield f"in {w_name}"
+
+            # Screens
+            screens = {c.effect for c in self._get_conditions(ScreensDamageCondition)}
+            if len(screens) > 0:
+                s = next(iter(screens))
+                s_name = " ".join(p.lower().capitalize() for p in s.name.split("_"))
+                yield f"through {s_name}"
+
+            # Critical hits
+            if self.critical:
+                yield "on a critical hit"
+
+        yield ":"
 
         # Rolls
-        yield f"{self.rolls[0]}-{self.rolls[-1]}"
+        if math.isclose(self.rolls[0], self.rolls[-1]):
+            yield f"{self.rolls[0]}"
+        else:
+            yield f"{self.rolls[0]}-{self.rolls[-1]}"
         def_hp = get_stat_value_from_info(self.defender.stats, Stat.HP)
         low_perc = int(1000 * self.rolls[0] / def_hp) / 10
         high_perc = int(1000 * self.rolls[-1] / def_hp) / 10
-        low_perc_str = f"{low_perc:.0f}" if low_perc == int(low_perc) else f"{low_perc:.1f}"
-        high_perc_str = f"{high_perc:.0f}" if high_perc == int(high_perc) else f"{high_perc:.1f}"
-        yield f"({low_perc_str} - {high_perc_str}%)"
+        low_perc = int(low_perc) if low_perc == int(low_perc) else low_perc
+        high_perc = int(high_perc) if high_perc == int(high_perc) else high_perc
+        if math.isclose(low_perc, high_perc):
+            yield f"({low_perc}%)"
+        else:
+            yield f"({low_perc} - {high_perc}%)"
 
         yield "--"
 
-        # TODO: Hits to KO calc
-        yield "guaranteed OHKO"
+        hits, probability = self.get_knockout_prognosis()
+        if hits is None:
+            yield "No damage for you"
+        elif hits > 9:
+            yield "possibly the worst move ever"
+        else:
+            ko_str = "OHKO" if hits == 1 else f"{hits}HKO"
+            if math.isclose(probability, 1):
+                yield f"guaranteed {ko_str}"
+            elif math.isclose(probability, 0):
+                yield f"possible {ko_str}"
+            else:
+                yield f"{probability:.2%} chance to {ko_str}"
 
     #
 
     #
+
+    def get_knockout_prognosis(self, precise_hits: int = 4) -> tuple[int | None, float]:
+        distribution: dict[int, int] = {0: 1}
+        hp_goal = get_stat_value_from_info(self.defender.stats, Stat.HP)
+
+        if self.max_roll == 0:
+            return None, 1.0
+        worst_case = math.ceil(hp_goal / self.min_roll)
+        best_case = math.ceil(hp_goal / self.max_roll)
+        if best_case > precise_hits:
+            if worst_case == best_case:
+                return worst_case, 1.0
+            return best_case, 0.0
+
+        for hits in range(1, precise_hits + 1):
+
+            new_dist: dict[int, int] = {}
+
+            for damage, ways in distribution.items():
+                for roll in self.rolls:
+                    new_dist.setdefault(damage + roll, 0)
+                    new_dist[damage + roll] += ways
+
+            distribution = new_dist
+
+            successful = sum(ways
+                for damage, ways in distribution.items()
+                if damage >= hp_goal)
+
+            probability = successful / (len(self.rolls) ** hits)
+
+            if probability > 0:
+                return hits, probability
+
+        raise RuntimeError("Unable to build KO prognosis")
+
 
     def _get_conditions(self, t: type[TCond]) -> list[TCond]:
         return [c for c in self.conditions if isinstance(c, t)]

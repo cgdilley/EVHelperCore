@@ -6,12 +6,14 @@ from SprelfPkmn.Objects.Stats import Stat, Stats, StatModifier, BaseStats, EV, I
     NUMBER_STATS, IV_MAX, StatError, TrainedValue, EVValue, StatPoint
 from SprelfPkmn.Objects.Ability import Ability, AbilityList
 from SprelfPkmn.Objects.PokemonData import PokemonData, PokemonDataMap, Pokemon
-from SprelfPkmn.Objects.Move import Move, MoveList, DamagingMove, MoveSet, StatusMove, MoveProperties, \
+from SprelfPkmn.Objects.Move import Move, MoveList, DamagingMove, MoveSet, StatusMove, MoveProperties
+from SprelfPkmn.Objects.CalculationCondition import \
     CalculationCondition, DamageCondition, BasePowerCondition, StatCondition, STABCondition, \
-    AbilityCondition, WeatherCondition, ItemCondition, \
-    AbilityDamageCondition, ItemDamageCondition, AssistanceDamageCondition, ScreensDamageCondition, \
+    AbilityCondition, WeatherCondition, ItemCondition, BoardEffectCondition, \
+    AbilityDamageCondition, ItemDamageCondition, BoardEffectDamageCondition, ScreensDamageCondition, \
     WeatherDamageCondition, \
-    ItemBasePowerCondition, AbilityBasePowerCondition, TerrainBasePowerCondition, \
+    ItemBasePowerCondition, AbilityBasePowerCondition, TerrainBasePowerCondition, BoardEffectBasePowerCondition, \
+    MoveBasePowerCondition, \
     ItemStatCondition, AbilityStatCondition
 from SprelfPkmn.Objects.MiscInfo import *
 from SprelfPkmn.Objects.Dex import DexEntryCollection, DexEntry, Dex
@@ -19,3 +21,4 @@ from SprelfPkmn.Objects.StatTemplate import StatTemplate
 from SprelfPkmn.Objects.CompetitiveInfo import CompetitiveInfo, Regulation, Regulation
 from SprelfPkmn.Objects.BoardState import BoardState, Entity, Terrain, Weather, Room, BoardEffectType, BoardEffect
 from SprelfPkmn.Objects.Item import Item
+from SprelfPkmn.Objects.MoveImplementations import *

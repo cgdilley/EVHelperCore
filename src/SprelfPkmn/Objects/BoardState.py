@@ -15,8 +15,12 @@ class Entity(JSONModel):
     typing: Typing
     ability: Ability
     stats: Stats
-    team: int
     item: Optional[Item]
+    team: int = 0
+    slot: int = 0
+
+    def matches(self, other: Entity) -> bool:
+        return self.team == other.team and self.slot == other.slot
 
 
 class Terrain(Enum):
@@ -37,7 +41,11 @@ class Weather(Enum):
     HARSH_SUN = 6
     HEAVY_RAIN = 7
     STRONG_WINDS = 8
-    CLOUD_NINE = 9
+
+
+class WeatherNegation(Enum):
+    CLOUD_NINE = 1
+    AIR_LOCK = 2
 
 class Room(IntFlag):
     NONE = 0
@@ -67,6 +75,7 @@ class BoardEffectType(Enum):
     BATTERY = 17
     FRIEND_GUARD = 18
     TAILWIND = 19
+    UNNERVE = 20
 
 
 class BoardEffect(JSONModel):
@@ -78,9 +87,10 @@ class BoardState(JSONModel):
     entities: list[Entity]
     terrain: Terrain = Terrain.NONE
     weather: Weather = Weather.NONE
+    weather_negations: list[WeatherNegation] = []
     room: Room = Room.NONE
     effects: list[BoardEffect] = []
     is_doubles: bool = True
 
     def get_effects_for_entity(self, entity: Entity) -> Iterable[BoardEffect]:
-        yield from (e for e in self.effects if entity in e.targets)
+        yield from (e for e in self.effects if any(entity.matches(t) for t in e.targets))

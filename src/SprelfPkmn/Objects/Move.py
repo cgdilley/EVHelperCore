@@ -8,9 +8,15 @@ from abc import ABC
 
 from SprelfJSON import JSONModel, AbstractJSONModel
 from SprelfPkmn.Objects.BoardState import Weather, BoardEffectType, Terrain
+from .CalculationCondition import DamageCondition, BasePowerCondition, STABCondition, StatCondition, \
+    AbilityStatCondition, AbilityBasePowerCondition, AbilityCondition, AbilityDamageCondition, \
+    ItemBasePowerCondition, ItemDamageCondition, ItemStatCondition, ItemCondition, \
+    ScreensDamageCondition, WeatherDamageCondition, WeatherCondition, WeatherStatCondition, \
+    BoardEffectBasePowerCondition, BoardEffectDamageCondition, TerrainBasePowerCondition
+
 
 TWO_THIRDS = 2732 / 4096
-ONE_POINT_THREE_THREE = 5448 / 4096
+FOUR_THIRDS = 5448 / 4096
 ONE_POINT_ONE = 4505 / 4096
 ONE_POINT_TWO = 4915 / 4096
 ONE_POINT_THREE = 5324 / 4096
@@ -21,17 +27,20 @@ ONE_POINT_THREE = 5324 / 4096
 
 class MoveProperties(IntFlag):
     NONE = 0
-    CONTACT = 1
-    SOUND = 2
-    SLASHING = 4
-    PUNCHING = 8
-    BITING = 16
-    BULLET = 32
-    WIND = 64
-    POWDER = 128
-    ABSORBING = 256
-    PULSING = 512
-    MULTI_TARGET = 1024
+    CONTACT = 2**0
+    SOUND = 2**1
+    SLASHING = 2**2
+    PUNCHING = 2**3
+    BITING = 2**4
+    BULLET = 2**5
+    WIND = 2**6
+    POWDER = 2**7
+    ABSORBING = 2**8
+    PULSING = 2**9
+    MULTI_TARGET = 2**10
+    HAS_SECONDARIES = 2**11
+    RECOIL = 2**12
+    CRASHING = 2**13
 
 
 class DamageType(Enum):
@@ -168,94 +177,6 @@ class MoveSet(JSONModel):
 
 #
 
-
-# +
-
-class CalculationCondition(AbstractJSONModel, ABC):
-    ...
-
-
-class DamageCondition(CalculationCondition, ABC):
-    multiplier: float
-    for_attacker: bool = True
-
-
-class STABCondition(CalculationCondition, ABC):
-    source: str
-    multiplier: float
-
-
-class StatCondition(CalculationCondition, ABC):
-    for_attacker: bool
-    stat: Stat
-    multiplier: float
-
-
-class BasePowerCondition(CalculationCondition, ABC):
-    multiplier: float
-
-
-class AbilityCondition(CalculationCondition, ABC):
-    ability: Ability
-
-
-class ItemCondition(CalculationCondition, ABC):
-    item: Item
-
-
-class AbilityBasePowerCondition(BasePowerCondition, AbilityCondition):
-    ...
-
-
-class TerrainBasePowerCondition(BasePowerCondition):
-    terrain: Terrain
-
-
-class ItemBasePowerCondition(BasePowerCondition, ItemCondition):
-    ...
-
-
-class ItemStatCondition(StatCondition, ItemCondition):
-    ...
-
-
-class ItemDamageCondition(DamageCondition, ItemCondition):
-    ...
-
-
-class TypeChangeCondition(CalculationCondition):
-    source: str
-    new_type: Type
-
-
-class WeatherCondition(CalculationCondition, ABC):
-    weather: Weather
-
-
-class WeatherDamageCondition(DamageCondition, WeatherCondition):
-    ...
-
-
-class WeatherStatModifier(StatCondition, WeatherCondition):
-    ...
-
-
-class ScreensDamageCondition(DamageCondition):
-    effect: BoardEffectType
-
-
-class AssistanceDamageCondition(DamageCondition):
-    source: str
-
-
-class AbilityDamageCondition(DamageCondition, AbilityCondition):
-    ...
-
-
-class AbilityStatCondition(StatCondition, AbilityCondition):
-    ...
-
-
 #
 
 
@@ -267,36 +188,38 @@ class WeatherModifiers:
                           attacker: Pokemon,
                           defender: Pokemon,
                           board_state: BoardState) -> Iterable[WeatherDamageCondition]:
-        if move.type == Type.FIRE:
-            if board_state.weather in (Weather.SUN, Weather.HARSH_SUN):
-                yield WeatherDamageCondition(weather=board_state.weather, multiplier=1.5)
-            elif board_state.weather == Weather.RAIN:
-                yield WeatherDamageCondition(weather=board_state.weather, multiplier=0.5)
-            elif board_state.weather == Weather.HEAVY_RAIN:
-                yield WeatherDamageCondition(weather=board_state.weather, multiplier=0)
-        elif move.type == Type.WATER:
-            if board_state.weather in (Weather.RAIN, Weather.HEAVY_RAIN):
-                yield WeatherDamageCondition(weather=board_state.weather, multiplier=1.5)
-            elif board_state.weather == Weather.SUN:
-                yield WeatherDamageCondition(weather=board_state.weather, multiplier=0.5)
-            elif board_state.weather == Weather.HARSH_SUN:
-                yield WeatherDamageCondition(weather=board_state.weather, multiplier=0)
+        if len(board_state.weather_negations) == 0:
+            if move.type == Type.FIRE:
+                if board_state.weather in (Weather.SUN, Weather.HARSH_SUN):
+                    yield WeatherDamageCondition(weather=board_state.weather, multiplier=1.5)
+                elif board_state.weather == Weather.RAIN:
+                    yield WeatherDamageCondition(weather=board_state.weather, multiplier=0.5)
+                elif board_state.weather == Weather.HEAVY_RAIN:
+                    yield WeatherDamageCondition(weather=board_state.weather, multiplier=0)
+            elif move.type == Type.WATER:
+                if board_state.weather in (Weather.RAIN, Weather.HEAVY_RAIN):
+                    yield WeatherDamageCondition(weather=board_state.weather, multiplier=1.5)
+                elif board_state.weather == Weather.SUN:
+                    yield WeatherDamageCondition(weather=board_state.weather, multiplier=0.5)
+                elif board_state.weather == Weather.HARSH_SUN:
+                    yield WeatherDamageCondition(weather=board_state.weather, multiplier=0)
 
     @classmethod
     def stat_conditions(cls,
                         move: DamagingMove,
                         attacker: Pokemon,
                         defender: Pokemon,
-                        board_state: BoardState) -> Iterable[WeatherStatModifier]:
-        if board_state.weather == Weather.SNOW and Type.ICE in defender.data.typing:
-            yield WeatherStatModifier(weather=board_state.weather,
-                                      stat=Stat.DEFENSE,
-                                      multiplier=1.5,
-                                      for_attacker=False)
-        if board_state.weather == Weather.SAND and Type.ROCK in defender.data.typing:
-            yield WeatherStatModifier(weather=board_state.weather,
-                                      stat=Stat.SP_DEFENSE,
-                                      multiplier=1.5,
+                        board_state: BoardState) -> Iterable[WeatherStatCondition]:
+        if len(board_state.weather_negations) == 0:
+            if board_state.weather == Weather.SNOW and Type.ICE in defender.data.typing:
+                yield WeatherStatCondition(weather=board_state.weather,
+                                          stat=Stat.DEFENSE,
+                                          multiplier=1.5,
+                                          for_attacker=False)
+            if board_state.weather == Weather.SAND and Type.ROCK in defender.data.typing:
+                yield WeatherStatCondition(weather=board_state.weather,
+                                          stat=Stat.SP_DEFENSE,
+                                          multiplier=1.5,
                                       for_attacker=False)
 
 
@@ -313,24 +236,43 @@ class AbilityModifiers:
         if critical and attacker.ability.name == "Sniper":
             yield AbilityDamageCondition(ability=attacker.ability, multiplier=1.5)
 
-        if defender.ability.name in ("Filter", "Solid Rock", "Prism Armor") \
-                and Type.get_damage_multiplier(move.type, defender.data.typing) > 1:
+        typing_multiplier = Type.get_damage_multiplier(move.type, defender.data.typing)
+        if defender.ability.name in ("Filter", "Solid Rock", "Prism Armor") and typing_multiplier > 1:
             yield AbilityDamageCondition(ability=defender.ability, multiplier=0.75)
-        if attacker.ability.name == "Tinted Lens" and Type.get_damage_multiplier(move.type, defender.data.typing) < 1:
+        if attacker.ability.name == "Tinted Lens" and typing_multiplier < 1:
             yield AbilityDamageCondition(ability=attacker.ability, multiplier=2)
+        if attacker.ability.name == "Neuroforce" and typing_multiplier > 1:
+            yield AbilityDamageCondition(ability=attacker.ability, multiplier=1.25)
 
         if attacker.ability.name != "Mold Breaker":
             if defender.ability.name == "Bulletproof" and MoveProperties.BULLET in move.properties:
-                yield AbilityDamageCondition(ability=defender.ability, multiplier=0)
+                yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
+                                             for_attacker=False)
             if defender.ability.name == "Soundproof" and MoveProperties.SOUND in move.properties:
-                yield AbilityDamageCondition(ability=defender.ability, multiplier=0)
-            if defender.ability.name in ("Flash Fire", "Well-baked Body",
-                                         "Thermal Exchange") and move.type == Type.FIRE:
-                yield AbilityDamageCondition(ability=defender.ability, multiplier=0)
+                yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
+                                             for_attacker=False)
+            if defender.ability.name in ("Flash Fire", "Well-baked Body") and move.type == Type.FIRE:
+                yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
+                                             for_attacker=False)
+            if defender.ability.name == "Volt Absorb" and move.type == Type.ELECTRIC:
+                yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
+                                             for_attacker=False)
             if defender.ability.name in ("Storm Drain", "Water Absorb", "Dry Skin") and move.type == Type.WATER:
-                yield AbilityDamageCondition(ability=defender.ability, multiplier=0)
+                yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
+                                             for_attacker=False)
             if defender.ability.name == "Levitate" and move.type == Type.GROUND:
-                yield AbilityDamageCondition(ability=defender.ability, multiplier=0)
+                yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
+                                             for_attacker=False)
+        if defender.ability.name == "Fluffy":
+            if MoveProperties.CONTACT in move.properties:
+                yield AbilityDamageCondition(ability=defender.ability, multiplier=0.5)
+            if move.type == Type.FIRE:
+                yield AbilityDamageCondition(ability=defender.ability, multiplier=2)
+        if defender.ability.name == "Punk Rock" and MoveProperties.SOUND in move.properties:
+            yield AbilityDamageCondition(ability=defender.ability, multiplier=0.5)
+        if defender.ability.name == "Ice Scales" and move.damage_type == DamageType.SPECIAL:
+            yield AbilityDamageCondition(ability=defender.ability, multiplier=0.5)
+        # TODO: Multiscale / Shadow Shield
 
     @classmethod
     def base_power_conditions(cls, move: DamagingMove,
@@ -345,8 +287,36 @@ class AbilityModifiers:
             yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_TWO)
         if attacker.ability.name == "Strong Jaw" and MoveProperties.BITING in move.properties:
             yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=1.5)
+        if attacker.ability.name == "Tough Claws" and MoveProperties.CONTACT in move.properties:
+            yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_THREE)
+        if attacker.ability.name == "Punk Rock" and MoveProperties.SOUND in move.properties:
+            yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_THREE)
+        if attacker.ability.name == "Sheer Force" and MoveProperties.HAS_SECONDARIES in move.properties:
+            yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_THREE)
+        if attacker.ability.name == "Reckless" and \
+                (MoveProperties.RECOIL in move.properties or MoveProperties.CRASHING in move.properties):
+            yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_TWO)
+
         if attacker.ability.name == "Steelworker" and move.type == Type.STEEL:
             yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=1.5)
+        if attacker.ability.name in ("Aerilate", "Refrigerate", "Pixilate", "Dragonize", "Galvanize") \
+            and move.type == Type.NORMAL:
+            yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_TWO)
+        if attacker.ability.name == "Normalize":
+            yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_TWO)
+        if attacker.ability.name == "Technician" and move.base_power <= 60:
+            yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=1.5)
+        if attacker.ability.name == "Sand Force" and board_state.weather == Weather.SAND and \
+            move.type in ("Ground", "Rock", "Steel") and len(board_state.weather_negations) == 0:
+            yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_THREE)
+        # TODO: Steely Spirit
+        # TODO: Toxic Boost / Flare Boost
+        # TODO: Power Spot / Battery / Whatever Cherrim's ability is
+        # TODO: Analytic
+        # TODO: Rivalry
+        # TODO: Supreme Overlord
+        #
+
 
 
 class BoardStateModifiers:
@@ -357,11 +327,10 @@ class BoardStateModifiers:
                           board_state: BoardState,
                           critical: bool) -> Iterable[DamageCondition]:
 
-        if attacker.ability.name != "Infiltrator":
-            screens = [effect for effect in board_state.effects
+        if attacker.ability.name != "Infiltrator" and not critical:
+            screens = [effect for effect in board_state.get_effects_for_entity(defender)
                        if effect.type in (BoardEffectType.LIGHT_SCREEN, BoardEffectType.REFLECT,
-                                          BoardEffectType.AURORA_VEIL)
-                       and all(entity.team == 1 for entity in effect.targets)]
+                                          BoardEffectType.AURORA_VEIL)]
             physical_screens = [s for s in screens if s.type != BoardEffectType.LIGHT_SCREEN]
             special_screens = [s for s in screens if s.type != BoardEffectType.REFLECT]
             if move.damage_type == DamageType.PHYSICAL and len(physical_screens) > 0:
@@ -371,10 +340,10 @@ class BoardStateModifiers:
                 yield ScreensDamageCondition(effect=special_screens[0].type,
                                              multiplier=TWO_THIRDS if board_state.is_doubles else 0.5)
 
-        if move.type == Type.FAIRY and any(effect.type == BoardEffectType.FAIRY_AURA for effect in board_state.effects):
-            yield AssistanceDamageCondition(source="Fairy Aura", multiplier=ONE_POINT_THREE_THREE)
-        elif move.type == Type.DARK and any(effect.type == BoardEffectType.DARK_AURA for effect in board_state.effects):
-            yield AssistanceDamageCondition(source="Dark Aura", multiplier=ONE_POINT_THREE_THREE)
+        if any(be.type == BoardEffectType.FRIEND_GUARD for be in board_state.get_effects_for_entity(defender)):
+            yield BoardEffectDamageCondition(effect=BoardEffectType.FRIEND_GUARD, multiplier=0.75)
+
+        #
 
     @classmethod
     def base_power_conditions(cls, move: DamagingMove,
@@ -392,6 +361,26 @@ class BoardStateModifiers:
                 yield TerrainBasePowerCondition(terrain=board_state.terrain, multiplier=0)
             elif move.type == Type.PSYCHIC and cls._is_grounded(attacker):
                 yield TerrainBasePowerCondition(terrain=board_state.terrain, multiplier=ONE_POINT_THREE)
+
+        has_aura_break = any(effect.type == BoardEffectType.AURA_BREAK for effect in board_state.effects)
+        if move.type == Type.FAIRY and any(effect.type == BoardEffectType.FAIRY_AURA for effect in board_state.effects):
+            if has_aura_break:
+                yield BoardEffectBasePowerCondition(effect=BoardEffectType.AURA_BREAK, multiplier=0.75)
+            else:
+                yield BoardEffectBasePowerCondition(effect=BoardEffectType.FAIRY_AURA, multiplier=FOUR_THIRDS)
+        elif move.type == Type.DARK and any(effect.type == BoardEffectType.DARK_AURA for effect in board_state.effects):
+            if has_aura_break:
+                yield BoardEffectBasePowerCondition(effect=BoardEffectType.AURA_BREAK, multiplier=0.75)
+            else:
+                yield BoardEffectBasePowerCondition(effect=BoardEffectType.DARK_AURA, multiplier=FOUR_THIRDS)
+
+        if any(be.type == BoardEffectType.HELPING_HAND for be in board_state.get_effects_for_entity(attacker)):
+            yield BoardEffectBasePowerCondition(effect=BoardEffectType.HELPING_HAND, multiplier=1.5,
+                                                for_attacker=True)
+
+        # TODO: Mud Sport, Water Sport
+        # TODO: Charge
+        # TODO: Me First
 
     @classmethod
     def _is_grounded(cls, pok: Pokemon):
@@ -414,6 +403,7 @@ class ItemModifiers:
                 yield ItemBasePowerCondition(item=attacker.item, multiplier=ONE_POINT_TWO)
             if attacker.item.name == "Punching Glove" and MoveProperties.PUNCHING in move.properties:
                 yield ItemBasePowerCondition(item=attacker.item, multiplier=ONE_POINT_ONE)
+            # TODO: Special legendary held items
 
     @classmethod
     def stat_conditions(cls, move: DamagingMove,
@@ -435,10 +425,21 @@ class ItemModifiers:
                 yield ItemDamageCondition(item=attacker.item, multiplier=ONE_POINT_THREE, for_attacker=True)
             if attacker.item.name == "Choice Band" and move.damage_type == DamageType.PHYSICAL:
                 yield ItemDamageCondition(item=attacker.item, multiplier=1.5, for_attacker=True)
-            if attacker.item.name == "Choice Scarf" and move.damage_type == DamageType.SPECIAL:
+            if attacker.item.name == "Choice Specs" and move.damage_type == DamageType.SPECIAL:
                 yield ItemDamageCondition(item=attacker.item, multiplier=1.5, for_attacker=True)
             if attacker.item.name == "Expert Belt" and Type.get_damage_multiplier(move.type, defender.data.typing) > 1:
                 yield ItemDamageCondition(item=attacker.item, multiplier=ONE_POINT_TWO, for_attacker=True)
+
+        if defender.item:
+            if defender.item.name == cls._type_resist_berry(move.type) \
+                and not any(be.type == BoardEffectType.UNNERVE
+                            for be in board_state.get_effects_for_entity(defender)) \
+                and (move.type == Type.NORMAL
+                    or Type.get_damage_multiplier(move.type, defender.data.typing) > 1):
+                yield ItemDamageCondition(item=defender.item,
+                                          multiplier=0.25 if defender.ability.name == "Ripen" else 0.5,
+                                          for_attacker=False)
+        # TODO: Metronome
 
     @classmethod
     def _type_item(cls, t: Type) -> tuple[str, ...]:
@@ -479,5 +480,48 @@ class ItemModifiers:
                 return "Never-Melt Ice", "Icicle Plate"
             case t.NORMAL:
                 return "Silk Scarf", "Blank Plate"
+            case _:
+                return ()
+
+
+    @classmethod
+    def _type_resist_berry(cls, t: Type) -> str:
+        match t:
+            case t.FIRE:
+                return "Occa Berry"
+            case t.WATER:
+                return "Passho Berry"
+            case t.GRASS:
+                return "Rindo Berry"
+            case t.ELECTRIC:
+                return "Wacan Berry"
+            case t.GROUND:
+                return "Shuca Berry"
+            case t.ROCK:
+                return "Charti Berry"
+            case t.FLYING:
+                return "Coba Berry"
+            case t.FIGHTING:
+                return "Chople Berry"
+            case t.PSYCHIC:
+                return "Payapa Berry"
+            case t.GHOST:
+                return "Kasib Berry"
+            case t.DARK:
+                return "Colbur Berry"
+            case t.BUG:
+                return "Tanga Berry"
+            case t.POISON:
+                return "Kebia Berry"
+            case t.STEEL:
+                return "Babiri Berry"
+            case t.FAIRY:
+                return "Roseli Berry"
+            case t.DRAGON:
+                return "Haban Berry"
+            case t.ICE:
+                return "Yache Berry"
+            case t.NORMAL:
+                return "Chilan Berry"
             case _:
                 return ()

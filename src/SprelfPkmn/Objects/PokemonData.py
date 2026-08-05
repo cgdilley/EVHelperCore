@@ -10,6 +10,7 @@ from SprelfPkmn.Objects.Variant import Variant
 from SprelfPkmn.Objects.Dex import DexEntryCollection, Dex
 from SprelfPkmn.Objects.MiscInfo import MiscInfo
 from SprelfPkmn.Objects.Item import Item
+from SprelfPkmn.Objects.BoardState import Entity
 
 from typing import Iterable, Iterator
 
@@ -191,9 +192,17 @@ class PokemonDataMap(PokemonQueryable):
 #
 
 
-class Pokemon(JSONModel):
+class Pokemon(Entity):
     data: PokemonData
     moveset: MoveSet
-    ability: Ability
-    stats: Stats
-    item: Item | None
+
+    def __init__(self, data: PokemonData, moveset: MoveSet, ability: Ability,
+                 item: Item | None, stats: Stats, team: int, slot: int):
+        super().__init__(data=data,
+                         moveset=moveset,
+                         ability=ability,
+                         item=item,
+                         stats=stats,
+                         team=team,
+                         slot=slot,
+                         typing=data.typing)
