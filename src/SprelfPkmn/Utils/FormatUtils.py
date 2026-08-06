@@ -56,3 +56,8 @@ def format_name_as_id(name: Name, variant: Optional[Variant] = None,
 #         elif variant.region == Region.GALAR:
 #             components.insert(0, "GALARIAN")
 #     return "_".join(components)
+
+
+def format_number(n: float | int, max_decimals: int = 2) -> str:
+    s = format(n, f".{max_decimals}f")
+    return s.rstrip("0").rstrip(".")

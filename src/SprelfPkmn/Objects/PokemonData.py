@@ -13,6 +13,7 @@ from SprelfPkmn.Objects.Item import Item
 from SprelfPkmn.Objects.BoardState import Entity
 
 from typing import Iterable, Iterator
+from enum import Enum
 
 from SprelfJSON import JSONModel, ModelElem
 
@@ -196,13 +197,3 @@ class Pokemon(Entity):
     data: PokemonData
     moveset: MoveSet
 
-    def __init__(self, data: PokemonData, moveset: MoveSet, ability: Ability,
-                 item: Item | None, stats: Stats, team: int, slot: int):
-        super().__init__(data=data,
-                         moveset=moveset,
-                         ability=ability,
-                         item=item,
-                         stats=stats,
-                         team=team,
-                         slot=slot,
-                         typing=data.typing)

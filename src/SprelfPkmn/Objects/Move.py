@@ -41,6 +41,7 @@ class MoveProperties(IntFlag):
     HAS_SECONDARIES = 2**11
     RECOIL = 2**12
     CRASHING = 2**13
+    IGNORES_BOOSTS = 2**14
 
 
 class DamageType(Enum):

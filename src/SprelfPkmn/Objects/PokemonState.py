@@ -19,23 +19,29 @@ class StatusCondition(Enum):
 
 
 class VolatileStatusCondition(JSONModel):
+    name: str
+    hidden: bool = False
+
+class MoveLimitingVolatile(VolatileStatusCondition):
+    move_name: str
+
+class UntilNextActionVolatile(VolatileStatusCondition):
     ...
 
-class TurnLimitedVolatileStatusCondition(VolatileStatusCondition):
+class TemporaryVolatile(VolatileStatusCondition):
     duration: int
-    turns_burned: int
+    turn_counter: int = 0
 
-
-class Confusion(TurnLimitedVolatileStatusCondition):
+class MoveLimitingTemporaryVolatile(TemporaryVolatile, MoveLimitingVolatile):
     ...
 
 
-class Taunt(TurnLimitedVolatileStatusCondition):
-    ...
-
-
-class Encore(TurnLimitedVolatileStatusCondition):
-    duration: int = 3
+# EXAMPLES:
+# taunt = TemporaryVolatile(name="Taunt", duration=3)
+# encore = MoveLimitingTemporaryVolatile(name="Encore", duration=3, move_name="Dragon Dance")
+# choice_lock = MoveLimitingVolatile(name="Choice Locked", move_name="Last Respects", hidden=True)
+# destiny_bond = UntilNextActionVolatile(name="Destiny Bond")
+# last_move_failed = UntilNextActionVolatile(name="Last Move Failed", hidden=True) # For Stomping Tantrum
 
 
 #
@@ -44,15 +50,14 @@ class Encore(TurnLimitedVolatileStatusCondition):
 #
 
 
-class PokemonState(JSONModel):
-    pokemon: Pokemon
+class PokemonState(Pokemon):
     hp: int
     status: StatusCondition = StatusCondition.NONE
     volatiles: list[VolatileStatusCondition] = []
 
     @property
     def modifiers(self) -> dict[Stat, int]:
-        return self.pokemon.stats.modifiers
+        return self.stats.modifiers
 
     def add_modifiers(self, *stat_mods: StatModifier):
-        self.pokemon.stats.add_modifiers(*stat_mods)
+        self.stats.add_modifiers(*stat_mods)

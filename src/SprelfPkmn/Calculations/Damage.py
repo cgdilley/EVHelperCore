@@ -7,7 +7,7 @@ from SprelfJSON import JSONModel
 from typing import Iterable, TypeVar
 import math
 
-from SprelfPkmn.Utils import ShowdownUtils
+from SprelfPkmn.Utils import ShowdownUtils, FormatUtils
 
 
 #
@@ -22,7 +22,10 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
     d_stat = get_stat_value_from_info(defender.stats, move.defense_stat)
 
     o_stat *= attacker.stats.get_modifier(stat=move.offense_stat, minimum=0 if critical else None).multiplier
-    d_stat *= defender.stats.get_modifier(stat=move.defense_stat, maximum=0 if critical else None).multiplier
+    if attacker.ability.name != "Unaware":
+        def_mult = defender.stats.get_modifier(stat=move.defense_stat, maximum=0 if critical else None).multiplier
+        if def_mult < 1 or MoveProperties.IGNORES_BOOSTS not in move.properties:
+            d_stat *= def_mult
 
     damage_ratio = math.floor(o_stat) / math.floor(d_stat)
 
@@ -36,7 +39,6 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
         if cond.stat == move.defense_stat and not cond.for_attacker:
             d_stat *= cond.multiplier
 
-    immune = False
     # Get base power
     base_power = move.base_power
 
@@ -45,7 +47,6 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
                                                                board_state=board_state))
     for cond in base_power_conditions:
         base_power = rounding_mult(base_power, cond.multiplier, hard_round=False)
-        immune |= cond.multiplier == 0
 
     # BASELINE DAMAGE CALC BEFORE DAMAGE MODIFIERS
     level_factor = ((2 * attacker.stats.level) // 5) + 2
@@ -70,7 +71,6 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
             continue
         weather_mult *= c.multiplier
     base_value = rounding_mult(base_value, weather_mult, hard_round=False)
-    immune |= weather_mult == 0
 
     # Critical
     base_value = rounding_mult(base_value,
@@ -91,10 +91,10 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
 
     # Type effectiveness (applied later)
     typing_multiplier = Type.get_damage_multiplier(move.type, defender.data.typing)
-    immune |= typing_multiplier == 0
 
     rolls: list[int] = []
-    if base_value == 0 or typing_multiplier == 0:
+    if base_value == 0 or typing_multiplier == 0 \
+            or any(math.isclose(c.multiplier, 0) for c in damage_conditions):
         rolls = [0] * 16
     else:
         # Random factors
@@ -115,9 +115,8 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
                 if isinstance(cond, WeatherDamageCondition):
                     continue
                 value = rounding_mult(value, cond.multiplier, hard_round=False)
-                immune |= cond.multiplier == 0
 
-            rolls.append(0 if immune else max(value, 1))
+            rolls.append(max(value, 1))
 
     return DamageReport(rolls=rolls,
                         move=move,
@@ -268,12 +267,10 @@ class DamageReport(JSONModel):
         def_hp = get_stat_value_from_info(self.defender.stats, Stat.HP)
         low_perc = int(1000 * self.rolls[0] / def_hp) / 10
         high_perc = int(1000 * self.rolls[-1] / def_hp) / 10
-        low_perc = int(low_perc) if low_perc == int(low_perc) else low_perc
-        high_perc = int(high_perc) if high_perc == int(high_perc) else high_perc
         if math.isclose(low_perc, high_perc):
-            yield f"({low_perc}%)"
+            yield f"({FormatUtils.format_number(low_perc, max_decimals=1)}%)"
         else:
-            yield f"({low_perc} - {high_perc}%)"
+            yield f"({FormatUtils.format_number(low_perc, max_decimals=1)} - {FormatUtils.format_number(high_perc, max_decimals=1)}%)"
 
         yield "--"
 
@@ -289,7 +286,7 @@ class DamageReport(JSONModel):
             elif math.isclose(probability, 0):
                 yield f"possible {ko_str}"
             else:
-                yield f"{probability:.2%} chance to {ko_str}"
+                yield f"{FormatUtils.format_number(probability * 100, max_decimals=2)}% chance to {ko_str}"
 
     #
 
@@ -323,9 +320,8 @@ class DamageReport(JSONModel):
                 for damage, ways in distribution.items()
                 if damage >= hp_goal)
 
-            probability = successful / (len(self.rolls) ** hits)
-
-            if probability > 0:
+            if successful > 0:
+                probability = successful / (len(self.rolls) ** hits)
                 return hits, probability
 
         raise RuntimeError("Unable to build KO prognosis")

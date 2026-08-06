@@ -122,6 +122,7 @@ class TestCalculations(TestCase):
                            moveset=MoveSet(),
                            ability=garchomp.abilities.primary,
                            item=None,
+                           typing=garchomp.typing,
                            stats=Stats.of(base=base_stats,
                                           evs=[EV(stat, 0) for stat in NUMBER_STATS],
                                           ivs=[IV(stat, 31) for stat in NUMBER_STATS],
@@ -133,6 +134,7 @@ class TestCalculations(TestCase):
                            moveset=MoveSet(),
                            ability=garchomp.abilities.primary,
                            item=None,
+                           typing=garchomp.typing,
                            stats=Stats.of(base=base_stats,
                                           evs=[EV(stat, 0) for stat in NUMBER_STATS],
                                           ivs=[IV(stat, 31) for stat in NUMBER_STATS],
@@ -187,6 +189,20 @@ class TestCalculations(TestCase):
                              report.rolls)
         self.assertEqual("0+ Atk Garchomp Dragon Claw vs. 0 HP / 0 Def Garchomp: 132-156 (72.1 - 85.2%) -- guaranteed 2HKO", str(report))
 
+        # Test resist berries
+        defender.item = Item(name="Haban Berry")
+        report = calculate_damage(attacker, defender, move=d_claw, board_state=board_state)
+        self.assertListEqual([66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73, 73, 75, 75, 76, 78],
+                             report.rolls)
+        self.assertEqual("0+ Atk Garchomp Dragon Claw vs. 0 HP / 0 Def Haban Berry Garchomp: 66-78 (36 - 42.6%) -- guaranteed 3HKO", str(report))
+
+        defender.item = Item(name="Occa Berry") # Will not take effect, despite matching types, because not super effective
+        report = calculate_damage(attacker, defender, move=f_punch, board_state=board_state)
+        self.assertListEqual([20, 21, 21, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24],
+                             report.rolls)
+        self.assertEqual("0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp: 20-24 (10.9 - 13.1%) -- possible 8HKO", str(report))
+        defender.item = None
+
         report = calculate_damage(attacker, defender, move=poison_jab, board_state=board_state)
         self.assertListEqual([22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 26],
                              report.rolls)
@@ -232,11 +248,7 @@ class TestCalculations(TestCase):
 
         # Test screens
         board_state.effects = [BoardEffect(type=BoardEffectType.REFLECT,
-                                           targets=[Entity(typing=defender.data.typing,
-                                                           ability=defender.ability,
-                                                           stats=defender.stats,
-                                                           team=1,
-                                                           item=defender.item)])]
+                                           targets=[defender])]
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([41, 42, 42, 43, 43, 44, 44, 45, 45, 46, 46, 47, 47, 48, 48, 49],
                              report.rolls)
@@ -257,21 +269,13 @@ class TestCalculations(TestCase):
             str(report))
 
         board_state.effects = [BoardEffect(type=BoardEffectType.AURORA_VEIL,
-                                           targets=[Entity(typing=defender.data.typing,
-                                                           ability=defender.ability,
-                                                           stats=defender.stats,
-                                                           team=1,
-                                                           item=defender.item)])]
+                                           targets=[defender])]
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([41, 42, 42, 43, 43, 44, 44, 45, 45, 46, 46, 47, 47, 48, 48, 49],
                              report.rolls)
         self.assertEqual("0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp through Aurora Veil: 41-49 (22.4 - 26.7%) -- 30.28% chance to 4HKO", str(report))
         board_state.effects = [BoardEffect(type=BoardEffectType.LIGHT_SCREEN,
-                                           targets=[Entity(typing=defender.data.typing,
-                                                           ability=defender.ability,
-                                                           stats=defender.stats,
-                                                           team=1,
-                                                           item=defender.item)])]
+                                           targets=[defender])]
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
                              report.rolls)
