@@ -193,7 +193,10 @@ class PokemonDataMap(PokemonQueryable):
 #
 
 
-class Pokemon(Entity):
+class Pokemon(JSONModel):
     data: PokemonData
     moveset: MoveSet
-
+    typing: Typing
+    ability: Ability
+    stats: Stats
+    item: Item | None

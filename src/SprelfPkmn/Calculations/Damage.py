@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from SprelfPkmn.Objects import *
+from SprelfPkmn.Implementations import *
 from SprelfPkmn.Calculations.Stats import get_stat_value_from_info
 from SprelfJSON import JSONModel
 
-from typing import Iterable, TypeVar
+from typing import Iterable, TypeVar, Collection
 import math
 
 from SprelfPkmn.Utils import ShowdownUtils, FormatUtils
@@ -13,7 +14,8 @@ from SprelfPkmn.Utils import ShowdownUtils, FormatUtils
 #
 
 
-def calculate_damage(attacker: Pokemon, defender: Pokemon,
+def calculate_damage(attacker: PokemonState,
+                     defender: PokemonState,
                      move: DamagingMove,
                      board_state: BoardState,
                      critical: bool = False) -> DamageReport:
@@ -27,8 +29,6 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
         if def_mult < 1 or MoveProperties.IGNORES_BOOSTS not in move.properties:
             d_stat *= def_mult
 
-    damage_ratio = math.floor(o_stat) / math.floor(d_stat)
-
     # Stat-modifying conditions (eg. Rock types in Sand)
     stat_conditions = list(move.get_stat_conditions(attacker=attacker,
                                                     defender=defender,
@@ -38,6 +38,9 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
             o_stat *= cond.multiplier
         if cond.stat == move.defense_stat and not cond.for_attacker:
             d_stat *= cond.multiplier
+
+    # Calculate ratio between offense and defense stats
+    damage_ratio = math.floor(o_stat) / math.floor(d_stat)
 
     # Get base power
     base_power = move.base_power
@@ -82,7 +85,7 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
     stab_conditions = list(move.get_stab_modifiers(attacker=attacker,
                                                    defender=defender,
                                                    board_state=board_state))
-    if move.type in attacker.data.typing:
+    if move.type in attacker.typing:
         if len(stab_conditions) > 0:
             for c in stab_conditions:
                 stab_multiplier *= c.multiplier
@@ -90,7 +93,7 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
             stab_multiplier = 1.5
 
     # Type effectiveness (applied later)
-    typing_multiplier = Type.get_damage_multiplier(move.type, defender.data.typing)
+    typing_multiplier = Type.get_damage_multiplier(move.type, defender.typing)
 
     rolls: list[int] = []
     if base_value == 0 or typing_multiplier == 0 \
@@ -108,7 +111,10 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
             value = rounding_mult(value, typing_multiplier, hard_round=True)
 
             # Status multiplier
-            # TODO: Implement
+            if attacker.status == StatusCondition.BURNED \
+                    and move.damage_class == DamageClass.PHYSICAL \
+                    and attacker.ability.name != "Guts":
+                value = rounding_mult(value, 0.5, hard_round=False)
 
             # Other multipliers
             for cond in damage_conditions:
@@ -123,14 +129,16 @@ def calculate_damage(attacker: Pokemon, defender: Pokemon,
                         attacker=attacker,
                         defender=defender,
                         critical=critical,
-                        conditions=damage_conditions + base_power_conditions + stab_conditions + stat_conditions)
+                        conditions=damage_conditions + base_power_conditions + stab_conditions + stat_conditions,
+                        terrain=board_state.terrain,
+                        weather=board_state.weather)
 
 
 #
 
 
-def get_damage_rolls(attacker: Pokemon,
-                     defender: Pokemon,
+def get_damage_rolls(attacker: PokemonState,
+                     defender: PokemonState,
                      move: DamagingMove,
                      board_state: BoardState,
                      critical: bool = False) -> Iterable[int]:
@@ -154,10 +162,12 @@ TCond = TypeVar("TCond", bound=CalculationCondition)
 class DamageReport(JSONModel):
     rolls: list[int]
     move: DamagingMove
-    attacker: Pokemon
-    defender: Pokemon
+    attacker: PokemonState
+    defender: PokemonState
     critical: bool
     conditions: list[CalculationCondition]
+    terrain: Terrain = Terrain.NONE
+    weather: Weather = Weather.NONE
 
     def __str__(self) -> str:
         return " ".join(self.get_report_components()).replace(" :", ":")
@@ -185,6 +195,12 @@ class DamageReport(JSONModel):
             # EVs and Nature for attacker
             yield self._get_ev_component(self.attacker.stats, self.move.offense_stat)
 
+            # Status modifiers
+            if self.attacker.status == StatusCondition.BURNED \
+                    and self.move.damage_class == DamageClass.PHYSICAL \
+                    and self.attacker.ability.name != "Guts":
+                yield "burned"
+
             # Item modifiers
             yield from (c.item.name for c in self._get_conditions(ItemCondition)
                         if getattr(c, "for_attacker", True))
@@ -195,7 +211,7 @@ class DamageReport(JSONModel):
 
         # Pokemon and Move
         yield ShowdownUtils.format_name(self.attacker.data.name.base_name(),
-                                                    self.attacker.data.variant)
+                                        self.attacker.data.variant)
         yield self.move.name
 
         if self.max_roll > 0:
@@ -236,16 +252,30 @@ class DamageReport(JSONModel):
 
         yield f"{ShowdownUtils.format_name(self.defender.data.name.base_name(), self.defender.data.variant)}"
 
-        if self.max_roll > 0:
-            # Weather modifiers
-            weathers = {c.weather for c in self._get_conditions(WeatherCondition)}
-            if len(weathers) > 1:
-                raise ValueError("Multiple weather conditions found")
-            if len(weathers) > 0:
-                w = next(iter(weathers))
-                w_name = " ".join(p.lower().capitalize() for p in w.name.split("_"))
-                yield f"in {w_name}"
+        # Weather modifiers
+        weather_conds = self._get_conditions(WeatherCondition)
+        weathers = {c.weather for c in weather_conds}
+        if len(weathers) > 1:
+            raise ValueError("Conflicting weather conditions found")
+        has_weather = len(weathers) > 0 and (
+                self.max_roll > 0 or any(hasattr(cond, "multiplier") and math.isclose(cond.multiplier, 0)
+                                         for cond in weather_conds))
+        if has_weather:
+            w = next(iter(weathers))
+            w_name = " ".join(p.lower().capitalize() for p in w.name.split("_"))
+            yield f"in {w_name}"
 
+        # Weather modifiers
+        terrain_conds = self._get_conditions(TerrainBasePowerCondition)
+        terrains = {c.terrain for c in terrain_conds}
+        if len(terrains) > 1:
+            raise ValueError("Conflicting terrain conditions found")
+        if len(terrains) > 0:
+            w = next(iter(terrains))
+            w_name = " ".join(p.lower().capitalize() for p in w.name.split("_"))
+            yield f"{'and' if has_weather else 'in'} {w_name} Terrain"
+
+        if self.max_roll > 0:
             # Screens
             screens = {c.effect for c in self._get_conditions(ScreensDamageCondition)}
             if len(screens) > 0:
@@ -274,9 +304,22 @@ class DamageReport(JSONModel):
 
         yield "--"
 
-        hits, probability = self.get_knockout_prognosis()
+        hp_effects = list(self._get_hp_effects())
+        if len(hp_effects) > 0:
+            heal_effects = [h for _, h, _ in hp_effects if h > 0]
+            dmg_effects = [d for _, d, _ in hp_effects if d < 0]
+            ramp_effects = [r for _, _, r in hp_effects if r < 0]
+            hits, probability = self.get_knockout_prognosis(heal_effects=heal_effects,
+                                                            dmg_effects=dmg_effects,
+                                                            ramp_effects=ramp_effects)
+        else:
+            hits, probability = self.get_knockout_prognosis()
+
         if hits is None:
-            yield "No damage for you"
+            if self.max_roll > 0:
+                yield "possibly the worst move ever"
+            else:
+                yield "No damage for you"
         elif hits > 9:
             yield "possibly the worst move ever"
         else:
@@ -288,23 +331,55 @@ class DamageReport(JSONModel):
             else:
                 yield f"{FormatUtils.format_number(probability * 100, max_decimals=2)}% chance to {ko_str}"
 
-    #
+            # Healing indications
+            if len(hp_effects) > 0:
+                if len(hp_effects) > 2:
+                    combined = ", ".join(eff for eff, _, _ in hp_effects[:-1]) + f", and {hp_effects[-1][0]}"
+                elif len(hp_effects) > 1:
+                    combined = f"{hp_effects[0][0]} and {hp_effects[1][0]}"
+                else:
+                    combined = hp_effects[0][0]
+                yield f"after {combined}"
 
     #
 
-    def get_knockout_prognosis(self, precise_hits: int = 4) -> tuple[int | None, float]:
-        distribution: dict[int, int] = {0: 1}
-        hp_goal = get_stat_value_from_info(self.defender.stats, Stat.HP)
+    #
 
+    def get_knockout_prognosis(self,
+                               precise_hits: int = 4,
+                               heal_effects: Collection[float] = (),
+                               dmg_effects: Collection[float] = (),
+                               ramp_effects: Collection[float] = ()) -> tuple[int | None, float]:
         if self.max_roll == 0:
             return None, 1.0
-        worst_case = math.ceil(hp_goal / self.min_roll)
-        best_case = math.ceil(hp_goal / self.max_roll)
+
+        max_hp = get_stat_value_from_info(self.defender.stats, Stat.HP)
+        heal_amounts = [max(int(max_hp * h), 1) for h in heal_effects]
+        dmg_amounts = [min(int(max_hp * d), -1) for d in dmg_effects]
+        hp_per_turn = sum(heal_amounts) + sum(dmg_amounts)
+
+        if len(ramp_effects) == 0 and hp_per_turn >= self.max_roll and self.max_roll < max_hp:
+            return None, 1.0
+
+        # turns = hp_goal / roll
+        # -> with end-of-turn effects, it's more complicated
+        if len(heal_effects) == 0 and len(dmg_effects) == 0 and len(ramp_effects) == 0:
+            worst_case = math.ceil(max_hp / self.min_roll)
+            best_case = math.ceil(max_hp / self.max_roll)
+        else:
+            worst_case = self._roll_solve(max_hp, hp_per_turn, ramp_effects, self.min_roll)
+            best_case = self._roll_solve(max_hp, hp_per_turn, ramp_effects, self.max_roll)
+
+        if best_case is None:
+            return None, 1.0
+
         if best_case > precise_hits:
             if worst_case == best_case:
                 return worst_case, 1.0
             return best_case, 0.0
 
+        distribution: dict[int, int] = {0: 1}
+        hp_goal = max_hp
         for hits in range(1, precise_hits + 1):
 
             new_dist: dict[int, int] = {}
@@ -316,20 +391,81 @@ class DamageReport(JSONModel):
 
             distribution = new_dist
 
-            successful = sum(ways
-                for damage, ways in distribution.items()
-                if damage >= hp_goal)
+            # The calculators are bugged.  This line would match calculator behavior.
+            # hp_step = hp_per_turn + sum(min(int(max_hp * r * (hits - 1)), -1) for r in ramp_effects) \
+            #     if hits > 1 else hp_per_turn
+            hp_step = hp_per_turn + sum(min(int(max_hp * r * hits), -1) for r in ramp_effects)
 
-            if successful > 0:
+            # Check if knocked out before damage effects
+            successful_no_effects = sum(ways
+                                        for damage, ways in distribution.items()
+                                        if damage >= hp_goal)
+
+            # Check again after end-of-turn HP effects
+            successful_with_effects = sum(ways
+                                          for damage, ways in distribution.items()
+                                          if damage >= hp_goal + hp_step)
+
+            if successful_no_effects > 0 or successful_with_effects > 0:
+                successful = max(successful_no_effects, successful_with_effects)
                 probability = successful / (len(self.rolls) ** hits)
                 return hits, probability
 
+            hp_goal += hp_step
+
         raise RuntimeError("Unable to build KO prognosis")
 
+    @classmethod
+    def _roll_solve(cls, hp_goal: int, hp_per_turn: int, ramp_effects: Collection[float], roll: int,
+                    maximum: int = 9) -> int | None:
+        accumulated = 0
+        for t in range(1, maximum + 2):
+            accumulated += roll
+            if accumulated >= hp_goal:
+                return t
+            accumulated -= hp_per_turn
+            # Online calculators are bugged.  This line would match calculator behavior.
+            # ramp_dmg = sum(min(int(hp_goal * r * (t - 1)), -1) for r in ramp_effects) \
+            #     if t > 1 else 0
+            ramp_dmg = sum(min(int(hp_goal * r * t), -1) for r in ramp_effects)
+            accumulated -= ramp_dmg
+            if accumulated >= hp_goal:
+                return t
+        return None
 
     def _get_conditions(self, t: type[TCond]) -> list[TCond]:
         return [c for c in self.conditions if isinstance(c, t)]
 
+    def _get_hp_effects(self) -> Iterable[tuple[str, float, float]]:
+        if self.weather == Weather.SAND and all(t not in self.defender.typing
+                                                for t in (Type.ROCK, Type.GROUND, Type.STEEL)) \
+                and self.defender.ability.name != "Magic Guard":
+            yield "sandstorm damage", -1 / 16, 0
+
+        if not any(v.name == "Heal Block" for v in self.defender.volatiles):
+            if self.terrain == Terrain.GRASSY:
+                yield "Grassy Terrain recovery", 1 / 16, 0
+            if self.defender.item:
+                if self.defender.item.name == "Leftovers":
+                    yield "Leftovers recovery", 1 / 16, 0
+                if self.defender.item.name == "Black Sludge" and Type.POISON in self.defender.typing:
+                    yield "Black Sludge recovery", 1 / 16, 0
+            if self.defender.ability.name == "Poison Heal" and self.defender.status in (StatusCondition.POISONED,
+                                                                                        StatusCondition.BADLY_POISONED):
+                yield "Poison Heal", 1 / 8, 0
+
+        if self.defender.ability.name != "Magic Guard":
+            if self.defender.item and self.defender.item.name == "Black Sludge" and Type.POISON not in self.defender.typing:
+                yield "Black Sludge damage", -1 / 16, 0
+            if self.defender.ability.name != "Poison Heal":
+                if self.defender.status == StatusCondition.POISONED:
+                    yield "poison damage", -1 / 8, 0
+                elif self.defender.status == StatusCondition.BADLY_POISONED:
+                    yield "toxic damage", 0, -1 / 16
+                    # it seems like damage calcs don't take into account toxic ramping, even though I can.
+                    # yield "toxic damage", -1 / 16, 0
+            if self.defender.status == StatusCondition.BURNED:
+                yield "burn damage", -1 / 16, 0
 
     def _get_ev_component(self, stats: Stats, relevant_stat: Stat):
         ev = stats.evs[relevant_stat].number
@@ -359,5 +495,3 @@ class DamageReport(JSONModel):
                 return "Spe"
             case _:
                 raise ValueError(f"Stat has no abbreviation: {stat}")
-
-

@@ -12,10 +12,6 @@ from SprelfPkmn.Objects.Item import Item
 
 
 class Entity(JSONModel):
-    typing: Typing
-    ability: Ability
-    stats: Stats
-    item: Optional[Item]
     team: int = 0
     slot: int = 0
 

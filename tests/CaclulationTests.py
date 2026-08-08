@@ -4,6 +4,7 @@ from SprelfPkmn.Calculations.Stats import *
 from SprelfPkmn.Calculations.StatTemplates import get_combinations_for_value
 from SprelfPkmn.Calculations.Damage import *
 from SprelfPkmn.Objects import *
+from SprelfPkmn.Implementations import *
 
 import itertools
 
@@ -113,137 +114,263 @@ class TestCalculations(TestCase):
     def test_damage(self):
 
         base_stats = BaseStats(attack=130, defense=95, special_attack=80, special_defense=85, speed=102, hp=108)
-        garchomp = PokemonData(name=Name(default="Garchomp"), variant=Variant(),
+        garchomp_base = PokemonData(name=Name(default="Garchomp"), variant=Variant(),
                                typing=Typing.of(Type.DRAGON, Type.GROUND),
                                stats=base_stats, abilities=AbilityList(primary=Ability(name="Rough Skin")),
                                move_list=MoveList(),
                                dex_entries=DexEntryCollection.of(), misc_info=MiscInfo())
-        attacker = Pokemon(data=garchomp,
+        garchomp = Pokemon(data=garchomp_base,
                            moveset=MoveSet(),
-                           ability=garchomp.abilities.primary,
+                           ability=garchomp_base.abilities.primary,
                            item=None,
-                           typing=garchomp.typing,
+                           typing=garchomp_base.typing,
                            stats=Stats.of(base=base_stats,
                                           evs=[EV(stat, 0) for stat in NUMBER_STATS],
                                           ivs=[IV(stat, 31) for stat in NUMBER_STATS],
                                           nature=Nature.Adamant,
                                           level=50,
-                                          modifiers=[]),
-                           team=0, slot=0)
-        defender = Pokemon(data=garchomp,
-                           moveset=MoveSet(),
-                           ability=garchomp.abilities.primary,
-                           item=None,
-                           typing=garchomp.typing,
-                           stats=Stats.of(base=base_stats,
-                                          evs=[EV(stat, 0) for stat in NUMBER_STATS],
-                                          ivs=[IV(stat, 31) for stat in NUMBER_STATS],
-                                          nature=Nature.Adamant,
-                                          level=50,
-                                          modifiers=[]),
-                           team=1, slot=0)
+                                          modifiers=[]))
+
+        attacker = PokemonState.fresh(pokemon=garchomp,
+                                      team=0, slot=0)
+        defender = PokemonState.fresh(pokemon=garchomp,
+                                      team=1, slot=0)
         board_state = BoardState(entities=[attacker, defender])
 
-        eq = DamagingMove(name="Earthquake", type=Type.GROUND, base_power=100, offense_stat=Stat.ATTACK,
-                          properties=MoveProperties.MULTI_TARGET)
-        stomping = DamagingMove(name="Stomping Tantrum", type=Type.GROUND, base_power=75, offense_stat=Stat.ATTACK)
-        d_claw = DamagingMove(name="Dragon Claw", type=Type.DRAGON, base_power=80, offense_stat=Stat.ATTACK)
-        poison_jab = DamagingMove(name="Poison Jab", type=Type.POISON, base_power=80, offense_stat=Stat.ATTACK)
-        ice_beam = DamagingMove(name="Ice Beam", type=Type.ICE, base_power=90, offense_stat=Stat.SP_ATTACK)
-        t_punch = DamagingMove(name="Thunder Punch", type=Type.ELECTRIC, base_power=75, offense_stat=Stat.ATTACK)
-        f_punch = DamagingMove(name="Fire Punch", type=Type.FIRE, base_power=75, offense_stat=Stat.ATTACK)
-        body_press = DamagingMove(name="Body Press", type=Type.FIGHTING, base_power=80, offense_stat=Stat.DEFENSE,
-                                  defense_stat=Stat.DEFENSE)
-        trailblaze = DamagingMove(name="Trailblaze", type=Type.GRASS, base_power=50, offense_stat=Stat.ATTACK)
+        eq = DamagingMove.build(name="Earthquake", typ=Type.GROUND, base_power=100, offense_stat=Stat.ATTACK,
+                                properties=MoveProperties.MULTI_TARGET)
+        stomping = DamagingMove.build(name="Stomping Tantrum", typ=Type.GROUND, base_power=75, offense_stat=Stat.ATTACK)
+        d_claw = DamagingMove.build(name="Dragon Claw", typ=Type.DRAGON, base_power=80, offense_stat=Stat.ATTACK)
+        poison_jab = DamagingMove.build(name="Poison Jab", typ=Type.POISON, base_power=80, offense_stat=Stat.ATTACK)
+        ice_beam = DamagingMove.build(name="Ice Beam", typ=Type.ICE, base_power=90, offense_stat=Stat.SP_ATTACK)
+        t_punch = DamagingMove.build(name="Thunder Punch", typ=Type.ELECTRIC, base_power=75, offense_stat=Stat.ATTACK)
+        f_punch = DamagingMove.build(name="Fire Punch", typ=Type.FIRE, base_power=75, offense_stat=Stat.ATTACK)
+        body_press = DamagingMove.build(name="Body Press", typ=Type.FIGHTING, base_power=80, offense_stat=Stat.DEFENSE,
+                                        defense_stat=Stat.DEFENSE)
+        trailblaze = DamagingMove.build(name="Trailblaze", typ=Type.GRASS, base_power=50, offense_stat=Stat.ATTACK)
         fish_rend = Move_FishiousRend()
 
         report = calculate_damage(attacker, defender, move=eq, board_state=board_state)
         self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Earthquake vs. 0 HP / 0 Def Garchomp: 61-73 (33.3 - 39.8%) -- guaranteed 3HKO",
-                         str(report))
-        
+        self.assertEqual(
+            "0+ Atk Garchomp Earthquake vs. 0 HP / 0 Def Garchomp: 61-73 (33.3 - 39.8%) -- guaranteed 3HKO",
+            str(report))
+
         board_state.is_doubles = False
         report = calculate_damage(attacker, defender, move=eq, board_state=board_state)
         self.assertListEqual([82, 82, 84, 85, 85, 87, 88, 88, 90, 91, 91, 93, 94, 94, 96, 97],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Earthquake vs. 0 HP / 0 Def Garchomp: 82-97 (44.8 - 53%) -- 26.17% chance to 2HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Earthquake vs. 0 HP / 0 Def Garchomp: 82-97 (44.8 - 53%) -- 26.17% chance to 2HKO",
+            str(report))
         board_state.is_doubles = True
 
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 61-73 (33.3 - 39.8%) -- guaranteed 3HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 61-73 (33.3 - 39.8%) -- guaranteed 3HKO",
+            str(report))
 
         attacker.stats.evs[Stat.ATTACK] = StatPoint(number=32)
         defender.stats.evs[Stat.DEFENSE] = StatPoint(number=32)
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([58, 58, 60, 60, 60, 61, 61, 63, 63, 64, 64, 66, 66, 67, 67, 69],
                              report.rolls)
-        self.assertEqual("32+ Atk Garchomp Stomping Tantrum vs. 0 HP / 32 Def Garchomp: 58-69 (31.6 - 37.7%) -- 85.38% chance to 3HKO", str(report))
+        self.assertEqual(
+            "32+ Atk Garchomp Stomping Tantrum vs. 0 HP / 32 Def Garchomp: 58-69 (31.6 - 37.7%) -- 85.38% chance to 3HKO",
+            str(report))
         attacker.stats.evs[Stat.ATTACK] = StatPoint(number=0)
         defender.stats.evs[Stat.DEFENSE] = StatPoint(number=0)
 
         report = calculate_damage(attacker, defender, move=d_claw, board_state=board_state)
         self.assertListEqual([132, 132, 134, 134, 138, 138, 140, 140, 144, 144, 146, 146, 150, 150, 152, 156],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Dragon Claw vs. 0 HP / 0 Def Garchomp: 132-156 (72.1 - 85.2%) -- guaranteed 2HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Dragon Claw vs. 0 HP / 0 Def Garchomp: 132-156 (72.1 - 85.2%) -- guaranteed 2HKO",
+            str(report))
 
         # Test resist berries
         defender.item = Item(name="Haban Berry")
         report = calculate_damage(attacker, defender, move=d_claw, board_state=board_state)
         self.assertListEqual([66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73, 73, 75, 75, 76, 78],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Dragon Claw vs. 0 HP / 0 Def Haban Berry Garchomp: 66-78 (36 - 42.6%) -- guaranteed 3HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Dragon Claw vs. 0 HP / 0 Def Haban Berry Garchomp: 66-78 (36 - 42.6%) -- guaranteed 3HKO",
+            str(report))
 
-        defender.item = Item(name="Occa Berry") # Will not take effect, despite matching types, because not super effective
+        defender.item = Item(
+            name="Occa Berry")  # Will not take effect, despite matching types, because not super effective
         report = calculate_damage(attacker, defender, move=f_punch, board_state=board_state)
         self.assertListEqual([20, 21, 21, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp: 20-24 (10.9 - 13.1%) -- possible 8HKO", str(report))
+        self.assertEqual("0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp: 20-24 (10.9 - 13.1%) -- possible 8HKO",
+                         str(report))
         defender.item = None
 
         report = calculate_damage(attacker, defender, move=poison_jab, board_state=board_state)
         self.assertListEqual([22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 26],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Poison Jab vs. 0 HP / 0 Def Garchomp: 22-26 (12 - 14.2%) -- possible 8HKO", str(report))
+        self.assertEqual("0+ Atk Garchomp Poison Jab vs. 0 HP / 0 Def Garchomp: 22-26 (12 - 14.2%) -- possible 8HKO",
+                         str(report))
 
         report = calculate_damage(attacker, defender, move=t_punch, board_state=board_state)
         self.assertListEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                              report.rolls)
         self.assertEqual("Garchomp Thunder Punch vs. Garchomp: 0 (0%) -- No damage for you", str(report))
 
+        # Test status
+        attacker.status = StatusCondition.BURNED
+        report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
+        self.assertListEqual([30, 31, 31, 32, 32, 33, 33, 33, 33, 34, 34, 35, 35, 36, 36, 36],
+                             report.rolls)
+        self.assertEqual(
+            "0+ Atk burned Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 30-36 (16.3 - 19.6%) -- possible 6HKO",
+            str(report))
+
+        report = calculate_damage(attacker, defender, move=ice_beam, board_state=board_state)
+        self.assertListEqual([116, 120, 120, 120, 124, 124, 124, 128, 128, 128, 132, 132, 132, 136, 136, 140],
+                             report.rolls)
+        self.assertEqual(
+            "0- SpA Garchomp Ice Beam vs. 0 HP / 0 SpD Garchomp: 116-140 (63.3 - 76.5%) -- guaranteed 2HKO",
+            str(report))
+
+        attacker.status = StatusCondition.NONE
+        defender.status = StatusCondition.BADLY_POISONED
+        report = calculate_damage(attacker, defender, move=f_punch, board_state=board_state)
+        self.assertListEqual([20, 21, 21, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24],
+                             report.rolls)
+        self.assertEqual(
+            "0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp: 20-24 (10.9 - 13.1%) -- guaranteed 4HKO after toxic damage",
+            str(report))
+
+        defender.status = StatusCondition.POISONED
+        report = calculate_damage(attacker, defender, move=f_punch, board_state=board_state)
+        self.assertEqual(
+            "0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp: 20-24 (10.9 - 13.1%) -- 0.78% chance to 4HKO after poison damage",
+            str(report))
+
+        defender.status = StatusCondition.BURNED
+        report = calculate_damage(attacker, defender, move=f_punch, board_state=board_state)
+        self.assertEqual(
+            "0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp: 20-24 (10.9 - 13.1%) -- guaranteed 6HKO after burn damage",
+            str(report))
+        defender.status = StatusCondition.NONE
+
         # Test weather
         report = calculate_damage(attacker, defender, move=f_punch, board_state=board_state)
         self.assertListEqual([20, 21, 21, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 24, 24, 24],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp: 20-24 (10.9 - 13.1%) -- possible 8HKO", str(report))
+        self.assertEqual("0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp: 20-24 (10.9 - 13.1%) -- possible 8HKO",
+                         str(report))
 
         board_state.weather = Weather.SUN
         report = calculate_damage(attacker, defender, move=f_punch, board_state=board_state)
         self.assertListEqual([31, 31, 31, 32, 32, 32, 33, 33, 33, 34, 34, 35, 35, 35, 36, 36],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp in Sun: 31-36 (16.9 - 19.6%) -- guaranteed 6HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp in Sun: 31-36 (16.9 - 19.6%) -- guaranteed 6HKO",
+            str(report))
 
         board_state.weather = Weather.RAIN
         report = calculate_damage(attacker, defender, move=f_punch, board_state=board_state)
         self.assertListEqual([10, 10, 10, 10, 10, 10, 10, 11, 11, 11, 11, 11, 11, 11, 11, 12],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp in Rain: 10-12 (5.4 - 6.5%) -- possibly the worst move ever", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Fire Punch vs. 0 HP / 0 Def Garchomp in Rain: 10-12 (5.4 - 6.5%) -- possibly the worst move ever",
+            str(report))
+
+        board_state.weather = Weather.SAND
+        defender.typing = Typing(primary=Type.ROCK)
+        report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
+        self.assertListEqual([122, 126, 126, 128, 128, 132, 132, 134, 134, 138, 138, 140, 140, 144, 144, 146],
+                             report.rolls)
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 122-146 (66.6 - 79.7%) -- guaranteed 2HKO",
+            str(report))
+
+        report = calculate_damage(attacker, defender, move=ice_beam, board_state=board_state)
+        self.assertListEqual([20, 20, 20, 21, 21, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 24],
+                             report.rolls)
+        self.assertEqual(
+            "0- SpA Garchomp Ice Beam vs. 0 HP / 0 SpD Garchomp in Sand: 20-24 (10.9 - 13.1%) -- possible 8HKO",
+            str(report))
+
+        defender.typing = Typing(primary=Type.ICE)
+        report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
+        self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
+                             report.rolls)
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 61-73 (33.3 - 39.8%) -- guaranteed 3HKO after sandstorm damage",
+            str(report))
+
+        board_state.weather = Weather.SNOW
+        report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
+        self.assertListEqual([42, 42, 42, 43, 43, 43, 45, 45, 45, 46, 46, 46, 48, 48, 48, 49],
+                             report.rolls)
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp in Snow: 42-49 (22.9 - 26.7%) -- 30.99% chance to 4HKO",
+            str(report))
+
+        report = calculate_damage(attacker, defender, move=ice_beam, board_state=board_state)
+        self.assertListEqual([14, 15, 15, 15, 15, 15, 15, 16, 16, 16, 16, 16, 16, 17, 17, 17],
+                             report.rolls)
+        self.assertEqual(
+            "0- SpA Garchomp Ice Beam vs. 0 HP / 0 SpD Garchomp: 14-17 (7.6 - 9.2%) -- possibly the worst move ever",
+            str(report))
+        defender.typing = defender.data.typing
+
+        board_state.weather = Weather.HEAVY_RAIN
+        report = calculate_damage(attacker, defender, move=f_punch, board_state=board_state)
+        self.assertListEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                             report.rolls)
+        self.assertEqual("Garchomp Fire Punch vs. Garchomp in Heavy Rain: 0 (0%) -- No damage for you", str(report))
         board_state.weather = Weather.NONE
 
         # Test terrain
         report = calculate_damage(attacker, defender, move=trailblaze, board_state=board_state)
         self.assertListEqual([28, 28, 28, 29, 29, 29, 30, 30, 30, 31, 31, 31, 32, 32, 32, 33],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Trailblaze vs. 0 HP / 0 Def Garchomp: 28-33 (15.3 - 18%) -- possible 6HKO", str(report))
+        self.assertEqual("0+ Atk Garchomp Trailblaze vs. 0 HP / 0 Def Garchomp: 28-33 (15.3 - 18%) -- possible 6HKO",
+                         str(report))
 
         board_state.terrain = Terrain.GRASSY
         report = calculate_damage(attacker, defender, move=trailblaze, board_state=board_state)
         self.assertListEqual([36, 36, 37, 37, 38, 38, 39, 39, 39, 40, 40, 41, 41, 42, 42, 43],
                              report.rolls)
-        # self.assertEqual("", str(report))
-        # 0+ Atk Garchomp Trailblaze vs. 0 HP / 0 Def Garchomp in Grassy Terrain: 36-43 (19.6 - 23.4%) -- possible 6HKO after Grassy Terrain recovery
+        self.assertEqual("0+ Atk Garchomp Trailblaze vs. 0 HP / 0 Def Garchomp in Grassy Terrain: 36-43 (19.6 - 23.4%) -- possible 6HKO after Grassy Terrain recovery", str(report))
+
+        board_state.weather = Weather.SNOW
+        defender.typing = Typing(primary=Type.ICE)
+        report = calculate_damage(attacker, defender, move=trailblaze, board_state=board_state)
+        self.assertListEqual([24, 24, 25, 25, 25, 26, 26, 26, 26, 27, 27, 27, 28, 28, 28, 29],
+                             report.rolls)
+        self.assertEqual(
+            "0+ Atk Garchomp Trailblaze vs. 0 HP / 0 Def Garchomp in Snow and Grassy Terrain: 24-29 (13.1 - 15.8%) -- possibly the worst move ever",
+            str(report))
+        board_state.weather = Weather.NONE
+        defender.typing = defender.data.typing
+
+        defender.item = Item(name="Leftovers")
+        defender.ability = Ability(name="Poison Heal")
+        defender.status = StatusCondition.BADLY_POISONED
+        report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
+        self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
+                             report.rolls)
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 61-73 (33.3 - 39.8%) -- possible 5HKO after Grassy Terrain recovery, Leftovers recovery, and Poison Heal",
+            str(report))
+
+        defender.ability = defender.data.abilities.primary
+        defender.status = StatusCondition.NONE
+        report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
+        self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
+                             report.rolls)
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 61-73 (33.3 - 39.8%) -- 99.94% chance to 4HKO after Grassy Terrain recovery and Leftovers recovery",
+            str(report))
+        defender.item = None
         board_state.terrain = Terrain.NONE
 
         # Test screens
@@ -252,13 +379,17 @@ class TestCalculations(TestCase):
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([41, 42, 42, 43, 43, 44, 44, 45, 45, 46, 46, 47, 47, 48, 48, 49],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp through Reflect: 41-49 (22.4 - 26.7%) -- 30.28% chance to 4HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp through Reflect: 41-49 (22.4 - 26.7%) -- 30.28% chance to 4HKO",
+            str(report))
 
         board_state.is_doubles = False
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([30, 31, 31, 32, 32, 33, 33, 33, 33, 34, 34, 35, 35, 36, 36, 36],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp through Reflect: 30-36 (16.3 - 19.6%) -- possible 6HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp through Reflect: 30-36 (16.3 - 19.6%) -- possible 6HKO",
+            str(report))
         board_state.is_doubles = True
 
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state, critical=True)
@@ -273,41 +404,48 @@ class TestCalculations(TestCase):
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([41, 42, 42, 43, 43, 44, 44, 45, 45, 46, 46, 47, 47, 48, 48, 49],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp through Aurora Veil: 41-49 (22.4 - 26.7%) -- 30.28% chance to 4HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp through Aurora Veil: 41-49 (22.4 - 26.7%) -- 30.28% chance to 4HKO",
+            str(report))
         board_state.effects = [BoardEffect(type=BoardEffectType.LIGHT_SCREEN,
                                            targets=[defender])]
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 61-73 (33.3 - 39.8%) -- guaranteed 3HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 61-73 (33.3 - 39.8%) -- guaranteed 3HKO",
+            str(report))
 
         report = calculate_damage(attacker, defender, move=ice_beam, board_state=board_state)
         self.assertListEqual([77, 80, 80, 80, 83, 83, 83, 85, 85, 85, 88, 88, 88, 91, 91, 93],
                              report.rolls)
-        self.assertEqual("0- SpA Garchomp Ice Beam vs. 0 HP / 0 SpD Garchomp through Light Screen: 77-93 (42 - 50.8%) -- 1.95% chance to 2HKO", str(report))
+        self.assertEqual(
+            "0- SpA Garchomp Ice Beam vs. 0 HP / 0 SpD Garchomp through Light Screen: 77-93 (42 - 50.8%) -- 1.95% chance to 2HKO",
+            str(report))
 
         board_state.effects = []
-        report = calculate_damage(attacker, defender, move=ice_beam, board_state=board_state)
-        self.assertListEqual([116, 120, 120, 120, 124, 124, 124, 128, 128, 128, 132, 132, 132, 136, 136, 140],
-                             report.rolls)
-        self.assertEqual("0- SpA Garchomp Ice Beam vs. 0 HP / 0 SpD Garchomp: 116-140 (63.3 - 76.5%) -- guaranteed 2HKO", str(report))
 
         report = calculate_damage(attacker, defender, move=body_press, board_state=board_state)
         self.assertListEqual([31, 31, 32, 32, 32, 33, 33, 34, 34, 34, 35, 35, 35, 36, 36, 37],
                              report.rolls)
-        self.assertEqual("0 Def Garchomp Body Press vs. 0 HP / 0 Def Garchomp: 31-37 (16.9 - 20.2%) -- possible 5HKO", str(report))
+        self.assertEqual("0 Def Garchomp Body Press vs. 0 HP / 0 Def Garchomp: 31-37 (16.9 - 20.2%) -- possible 5HKO",
+                         str(report))
 
         # Test ability effects
         report = calculate_damage(attacker, defender, move=fish_rend, board_state=board_state)
         self.assertListEqual([92, 93, 94, 95, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 109],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Fishious Rend (170 BP) vs. 0 HP / 0 Def Garchomp: 92-109 (50.2 - 59.5%) -- guaranteed 2HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Fishious Rend (170 BP) vs. 0 HP / 0 Def Garchomp: 92-109 (50.2 - 59.5%) -- guaranteed 2HKO",
+            str(report))
 
         attacker.ability = Ability(name="Strong Jaw")
         report = calculate_damage(attacker, defender, move=fish_rend, board_state=board_state)
         self.assertListEqual([137, 139, 140, 142, 144, 145, 147, 149, 150, 152, 153, 155, 157, 158, 160, 162],
                              report.rolls)
-        self.assertEqual("0+ Atk Strong Jaw Garchomp Fishious Rend (170 BP) vs. 0 HP / 0 Def Garchomp: 137-162 (74.8 - 88.5%) -- guaranteed 2HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Strong Jaw Garchomp Fishious Rend (170 BP) vs. 0 HP / 0 Def Garchomp: 137-162 (74.8 - 88.5%) -- guaranteed 2HKO",
+            str(report))
 
         defender.ability = Ability(name="Water Absorb")
         report = calculate_damage(attacker, defender, move=fish_rend, board_state=board_state)
@@ -321,44 +459,76 @@ class TestCalculations(TestCase):
                              report.rolls)
         self.assertEqual("Garchomp Stomping Tantrum vs. Levitate Garchomp: 0 (0%) -- No damage for you", str(report))
 
+        attacker.status = StatusCondition.BURNED
+        attacker.ability = Ability(name="Guts")
+        defender.ability = defender.data.abilities.primary
+        report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
+        self.assertListEqual([91, 91, 93, 94, 96, 96, 97, 99, 99, 100, 102, 103, 103, 105, 106, 108],
+                             report.rolls)
+        self.assertEqual(
+            "0+ Atk Guts Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 91-108 (49.7 - 59%) -- 98.44% chance to 2HKO",
+            str(report))
+
+        defender.ability = Ability(name="Marvel Scale")
+        defender.status = StatusCondition.PARALYZED
+        report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
+        self.assertListEqual([61, 63, 63, 64, 64, 66, 66, 67, 67, 69, 69, 70, 70, 72, 72, 73],
+                             report.rolls)
+        self.assertEqual(
+            "0+ Atk Guts Garchomp Stomping Tantrum vs. 0 HP / 0 Def Marvel Scale Garchomp: 61-73 (33.3 - 39.8%) -- guaranteed 3HKO",
+            str(report))
         attacker.ability = attacker.data.abilities.primary
         defender.ability = defender.data.abilities.primary
+        attacker.status = StatusCondition.NONE
+        defender.status = StatusCondition.NONE
 
         attacker.stats.add_modifiers(StatModifier(Stat.ATTACK, 2))
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([121, 123, 124, 126, 127, 129, 130, 132, 133, 135, 136, 138, 139, 141, 142, 144],
                              report.rolls)
-        self.assertEqual("+2 0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 121-144 (66.1 - 78.6%) -- guaranteed 2HKO", str(report))
+        self.assertEqual(
+            "+2 0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp: 121-144 (66.1 - 78.6%) -- guaranteed 2HKO",
+            str(report))
 
         defender.stats.add_modifiers(StatModifier(Stat.DEFENSE, 4))
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([42, 42, 42, 43, 43, 43, 45, 45, 45, 46, 46, 46, 48, 48, 48, 49],
                              report.rolls)
-        self.assertEqual("+2 0+ Atk Garchomp Stomping Tantrum vs. +4 0 HP / 0 Def Garchomp: 42-49 (22.9 - 26.7%) -- 30.99% chance to 4HKO", str(report))
+        self.assertEqual(
+            "+2 0+ Atk Garchomp Stomping Tantrum vs. +4 0 HP / 0 Def Garchomp: 42-49 (22.9 - 26.7%) -- 30.99% chance to 4HKO",
+            str(report))
 
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state,
                                   critical=True)
         self.assertListEqual([183, 184, 187, 189, 192, 193, 196, 198, 199, 202, 204, 207, 208, 211, 213, 216],
                              report.rolls)
-        self.assertEqual("+2 0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp on a critical hit: 183-216 (100 - 118%) -- guaranteed OHKO", str(report))
+        self.assertEqual(
+            "+2 0+ Atk Garchomp Stomping Tantrum vs. 0 HP / 0 Def Garchomp on a critical hit: 183-216 (100 - 118%) -- guaranteed OHKO",
+            str(report))
 
         defender.stats.add_modifiers(StatModifier(Stat.DEFENSE, -5))  # To -1
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([184, 186, 189, 190, 193, 195, 196, 199, 201, 204, 205, 208, 210, 213, 214, 217],
                              report.rolls)
-        self.assertEqual("+2 0+ Atk Garchomp Stomping Tantrum vs. -1 0 HP / 0 Def Garchomp: 184-217 (100.5 - 118.5%) -- guaranteed OHKO", str(report))
+        self.assertEqual(
+            "+2 0+ Atk Garchomp Stomping Tantrum vs. -1 0 HP / 0 Def Garchomp: 184-217 (100.5 - 118.5%) -- guaranteed OHKO",
+            str(report))
 
         attacker.stats.add_modifiers(StatModifier(Stat.ATTACK, -4))  # To -2
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state)
         self.assertListEqual([46, 46, 48, 48, 48, 49, 49, 51, 51, 51, 52, 52, 52, 54, 54, 55],
                              report.rolls)
-        self.assertEqual("-2 0+ Atk Garchomp Stomping Tantrum vs. -1 0 HP / 0 Def Garchomp: 46-55 (25.1 - 30%) -- guaranteed 4HKO", str(report))
+        self.assertEqual(
+            "-2 0+ Atk Garchomp Stomping Tantrum vs. -1 0 HP / 0 Def Garchomp: 46-55 (25.1 - 30%) -- guaranteed 4HKO",
+            str(report))
 
         report = calculate_damage(attacker, defender, move=stomping, board_state=board_state,
                                   critical=True)
         self.assertListEqual([138, 139, 141, 142, 145, 147, 148, 150, 151, 153, 154, 156, 157, 159, 160, 163],
                              report.rolls)
-        self.assertEqual("0+ Atk Garchomp Stomping Tantrum vs. -1 0 HP / 0 Def Garchomp on a critical hit: 138-163 (75.4 - 89%) -- guaranteed 2HKO", str(report))
+        self.assertEqual(
+            "0+ Atk Garchomp Stomping Tantrum vs. -1 0 HP / 0 Def Garchomp on a critical hit: 138-163 (75.4 - 89%) -- guaranteed 2HKO",
+            str(report))
 
         attacker.stats.add_modifiers(StatModifier(Stat.ATTACK, -12, adjust_to_cap=False))
         defender.stats.add_modifiers(StatModifier(Stat.DEFENSE, 12, adjust_to_cap=False))

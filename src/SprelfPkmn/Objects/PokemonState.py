@@ -3,6 +3,8 @@ from __future__ import annotations
 from SprelfJSON import JSONModel
 from .PokemonData import Pokemon
 from .Stats import StatModifier, Stat
+from .BoardState import Entity
+from SprelfPkmn.Calculations.Stats import get_stat_value_from_info
 
 from enum import Enum
 
@@ -22,15 +24,19 @@ class VolatileStatusCondition(JSONModel):
     name: str
     hidden: bool = False
 
+
 class MoveLimitingVolatile(VolatileStatusCondition):
     move_name: str
+
 
 class UntilNextActionVolatile(VolatileStatusCondition):
     ...
 
+
 class TemporaryVolatile(VolatileStatusCondition):
     duration: int
     turn_counter: int = 0
+
 
 class MoveLimitingTemporaryVolatile(TemporaryVolatile, MoveLimitingVolatile):
     ...
@@ -50,10 +56,26 @@ class MoveLimitingTemporaryVolatile(TemporaryVolatile, MoveLimitingVolatile):
 #
 
 
-class PokemonState(Pokemon):
+class PokemonState(Pokemon, Entity):
     hp: int
     status: StatusCondition = StatusCondition.NONE
     volatiles: list[VolatileStatusCondition] = []
+
+    @classmethod
+    def fresh(cls, pokemon: Pokemon, team: int, slot: int) -> PokemonState:
+        hp = get_stat_value_from_info(pokemon.stats, Stat.HP)
+        return PokemonState(
+            data=pokemon.data,
+            typing=pokemon.typing,
+            ability=pokemon.ability,
+            moveset=pokemon.moveset,
+            stats=pokemon.stats,
+            item=pokemon.item,
+            team=team,
+            slot=slot,
+            hp=hp,
+            status=StatusCondition.NONE,
+            volatiles=[])
 
     @property
     def modifiers(self) -> dict[Stat, int]:
