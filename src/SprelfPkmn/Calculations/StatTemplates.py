@@ -1,4 +1,4 @@
-from SprelfPkmn import EV
+
 from SprelfPkmn.Calculations.Stats import get_evs_from_value, get_base_stat_from_value, get_stat_value, \
     get_ivs_from_value
 from SprelfPkmn.Objects import StatTemplate, IV_MAX, Nature, StatPoint, TrainedValue

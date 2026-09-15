@@ -14,7 +14,8 @@ from SprelfPkmn.Objects.CalculationCondition import \
     WeatherDamageCondition, WeatherStatCondition, \
     ItemBasePowerCondition, AbilityBasePowerCondition, TerrainBasePowerCondition, BoardEffectBasePowerCondition, \
     MoveBasePowerCondition, \
-    ItemStatCondition, AbilityStatCondition
+    ItemStatCondition, AbilityStatCondition, \
+    TypeChangeCondition
 from SprelfPkmn.Objects.MiscInfo import *
 from SprelfPkmn.Objects.Dex import DexEntryCollection, DexEntry, Dex
 from SprelfPkmn.Objects.StatTemplate import StatTemplate
@@ -23,3 +24,5 @@ from SprelfPkmn.Objects.BoardState import BoardState, Entity, Terrain, Weather, 
 from SprelfPkmn.Objects.Item import Item
 from SprelfPkmn.Objects.PokemonState import PokemonState, StatusCondition, VolatileStatusCondition, \
     TemporaryVolatile, UntilNextActionVolatile, MoveLimitingTemporaryVolatile, MoveLimitingVolatile
+from SprelfPkmn.Objects.Showdown import format_name as format_showdown_name, parse_showdown_name
+from SprelfPkmn.Objects import Showdown

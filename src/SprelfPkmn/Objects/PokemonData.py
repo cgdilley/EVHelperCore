@@ -6,14 +6,15 @@ from SprelfPkmn.Objects.Ability import Ability, AbilityList
 from SprelfPkmn.Objects.Type import Type, Typing
 from SprelfPkmn.Objects.Move import MoveList, MoveSet
 from SprelfPkmn.Objects.Stats import Stats, BaseStats, Stat, NUMBER_STATS
-from SprelfPkmn.Objects.Variant import Variant
+from SprelfPkmn.Objects.Variant import Variant, Gender
 from SprelfPkmn.Objects.Dex import DexEntryCollection, Dex
 from SprelfPkmn.Objects.MiscInfo import MiscInfo
 from SprelfPkmn.Objects.Item import Item
-from SprelfPkmn.Objects.BoardState import Entity
+from SprelfPkmn.Objects.Showdown import format_name as format_showdown_name
 
 from typing import Iterable, Iterator
 from enum import Enum
+import json
 
 from SprelfJSON import JSONModel, ModelElem
 
@@ -53,6 +54,10 @@ class PokemonData(JSONModel):
 
     def __repr__(self) -> str:
         return str(self)
+
+    @property
+    def showdown_name(self) -> str:
+        return format_showdown_name(self.name.base_name(), self.variant)
 
 
 #
@@ -117,6 +122,7 @@ class PokemonDataMap(PokemonQueryable):
         self._items: list[PokemonData] = list(self._items)
         self.name_map: dict[str, list[PokemonData]] = dict()
         self.name_id_map: dict[str, PokemonData] = dict()
+        self.showdown_name_map: dict[str, PokemonData] = dict()
         self.typing_map: dict[Type, list[PokemonData]] = dict()
         self.stats_map: dict[Stat, dict[int, list[PokemonData]]] = \
             {s: dict() for s in NUMBER_STATS}
@@ -140,6 +146,7 @@ class PokemonDataMap(PokemonQueryable):
     def _index_item(self, d: PokemonData):
         self.name_map.setdefault(d.name.base_name(), []).append(d)
         self.name_id_map[d.name_id] = d
+        self.showdown_name_map[format_showdown_name(d.name.base_name(), d.variant)] = d
         for t in d.typing:
             self.typing_map.setdefault(t, []).append(d)
         for stat, value in d.stats:
@@ -159,6 +166,9 @@ class PokemonDataMap(PokemonQueryable):
 
     def name(self, name: str) -> PokemonQueryable:
         return PokemonQueryable(self.name_map.get(name, []))
+
+    def showdown_name(self, name: str) -> PokemonData | None:
+        return self.showdown_name_map.get(name, None)
 
     def typing(self, t: Type) -> PokemonQueryable:
         return PokemonQueryable(self.typing_map.get(t, []))
@@ -189,6 +199,10 @@ class PokemonDataMap(PokemonQueryable):
     def regulation(self, regulation: Regulation) -> PokemonQueryable:
         return PokemonQueryable(self.regulations_map.get(regulation, []))
 
+    @classmethod
+    def from_file(cls, filename: str):
+        with open(filename, "r", encoding="utf-8") as f:
+            return PokemonDataMap((PokemonData.from_json(json.loads(line)) for line in f.readlines() if line))
 
 #
 
@@ -200,3 +214,4 @@ class Pokemon(JSONModel):
     ability: Ability
     stats: Stats
     item: Item | None
+    gender: Gender | None

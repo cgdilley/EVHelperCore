@@ -129,7 +129,8 @@ class TestCalculations(TestCase):
                                           ivs=[IV(stat, 31) for stat in NUMBER_STATS],
                                           nature=Nature.Adamant,
                                           level=50,
-                                          modifiers=[]))
+                                          modifiers=[]),
+                           gender=None)
 
         attacker = PokemonState.fresh(pokemon=garchomp,
                                       team=0, slot=0)
@@ -148,6 +149,7 @@ class TestCalculations(TestCase):
         body_press = DamagingMove.build(name="Body Press", typ=Type.FIGHTING, base_power=80, offense_stat=Stat.DEFENSE,
                                         defense_stat=Stat.DEFENSE)
         trailblaze = DamagingMove.build(name="Trailblaze", typ=Type.GRASS, base_power=50, offense_stat=Stat.ATTACK)
+        moonblast = DamagingMove.build(name="Moonblast", typ=Type.FAIRY, base_power=95, offense_stat=Stat.SP_ATTACK)
         fish_rend = Move_FishiousRend()
 
         report = calculate_damage(attacker, defender, move=eq, board_state=board_state)
@@ -539,3 +541,30 @@ class TestCalculations(TestCase):
         self.assertEqual(
             "-6 0+ Atk Garchomp Fire Punch vs. +6 0 HP / 0 Def Garchomp in Rain: 1 (0.5%) -- possibly the worst move ever",
             str(report))
+        board_state.weather = Weather.NONE
+        defender.stats.add_modifiers(StatModifier(Stat.DEFENSE, -6, adjust_to_cap=False))
+
+        report = calculate_damage(attacker, defender, move=moonblast, board_state=board_state)
+        self.assertListEqual([62, 62, 64, 64, 64, 66, 66, 68, 68, 68, 70, 70, 70, 72, 72, 74],
+                             report.rolls)
+        self.assertEqual(
+            "0- SpA Garchomp Moonblast vs. 0 HP / 0 SpD Garchomp: 62-74 (33.8 - 40.4%) -- guaranteed 3HKO",
+            str(report))
+
+        board_state.effects = [BoardEffect(type=BoardEffectType.FAIRY_AURA, targets=[attacker, defender])]
+        report = calculate_damage(attacker, defender, move=moonblast, board_state=board_state)
+        self.assertListEqual([82, 84, 84, 86, 86, 88, 88, 90, 90, 92, 92, 94, 94, 96, 96, 98],
+                             report.rolls)
+        self.assertEqual(
+            "0- SpA Fairy Aura Garchomp Moonblast vs. 0 HP / 0 SpD Garchomp: 82-98 (44.8 - 53.5%) -- 33.2% chance to 2HKO",
+            str(report))
+
+        board_state.effects = [BoardEffect(type=BoardEffectType.FAIRY_AURA, targets=[attacker, defender]),
+                               BoardEffect(type=BoardEffectType.AURA_BREAK, targets=[attacker, defender])]
+        report = calculate_damage(attacker, defender, move=moonblast, board_state=board_state)
+        self.assertListEqual([46, 48, 48, 48, 48, 50, 50, 50, 52, 52, 52, 52, 54, 54, 54, 56],
+                             report.rolls)
+        self.assertEqual(
+            "0- SpA Fairy Aura Garchomp Moonblast vs. 0 HP / 0 SpD Aura Break Garchomp: 46-56 (25.1 - 30.6%) -- guaranteed 4HKO",
+            str(report))
+        board_state.effects = []

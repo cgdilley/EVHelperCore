@@ -28,6 +28,9 @@ class MoveProperties(IntFlag):
     CRASHING = 2 ** 13
     IGNORES_BOOSTS = 2 ** 14
 
+    def __iter__(self):
+        return (flag for flag in type(self) if self & flag)
+
 
 class DamageClass(Enum):
     PHYSICAL = 1

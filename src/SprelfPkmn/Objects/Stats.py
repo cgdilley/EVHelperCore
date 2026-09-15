@@ -404,7 +404,7 @@ class Stats(JSONModel):
         if enforce_legality and not EV.is_legal(*ev_list):
             raise ValueError(f"Invalid EVs: {ev_list}")
         return Stats(base=base,
-                     evs={**{stat: 0 for stat in NUMBER_STATS},
+                     evs={**{stat: StatPoint(number=0) for stat in NUMBER_STATS},
                           **{ev.stat: ev.number for ev in ev_list}},
                      ivs={**{stat: IV_MAX for stat in NUMBER_STATS},
                           **{iv.stat: iv.value for iv in ivs}},

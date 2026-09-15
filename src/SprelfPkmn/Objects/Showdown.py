@@ -1,6 +1,7 @@
+from __future__ import annotations
 
-from SprelfPkmn.Objects import Name, VariantName, Variant, Region, MegaType, Gender
-
+from .Name import Name
+from .Variant import Variant, Region, Gender, MegaType
 
 _FORM_CONVERSIONS = {
     ("Aegislash", "Shield Forme"): None,

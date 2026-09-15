@@ -3,14 +3,16 @@ from __future__ import annotations
 from SprelfPkmn.Objects import *
 from SprelfJSON import JSONModel
 
-from typing import Self, Iterable
-
+from typing import Self, Iterable, Protocol, TypeVar, Generic
 
 TWO_THIRDS = 2732 / 4096
 FOUR_THIRDS = 5448 / 4096
 ONE_POINT_ONE = 4505 / 4096
 ONE_POINT_TWO = 4915 / 4096
 ONE_POINT_THREE = 5324 / 4096
+
+
+#
 
 
 #
@@ -87,18 +89,12 @@ class DamagingMove(Move):
     def get_base_power_modifiers(self, attacker: PokemonState,
                                  defender: PokemonState,
                                  board_state: BoardState) -> Iterable[BasePowerCondition]:
-        yield from AbilityModifiers.base_power_conditions(move=self,
-                                                          attacker=attacker,
-                                                          defender=defender,
-                                                          board_state=board_state)
-        yield from BoardStateModifiers.base_power_conditions(move=self,
-                                                             attacker=attacker,
-                                                             defender=defender,
-                                                             board_state=board_state)
-        yield from ItemModifiers.base_power_conditions(move=self,
-                                                       attacker=attacker,
-                                                       defender=defender,
-                                                       board_state=board_state)
+        functions: tuple[CalcConditionFunc, ...] = (WeatherModifiers.base_power_conditions,
+                                                    AbilityModifiers.base_power_conditions,
+                                                    BoardStateModifiers.base_power_conditions,
+                                                    ItemModifiers.base_power_conditions)
+        for f in functions:
+            yield from f(move=self, attacker=attacker, defender=defender, board_state=board_state)
 
     def get_stab_modifiers(self, attacker: PokemonState,
                            defender: PokemonState,
@@ -106,6 +102,28 @@ class DamagingMove(Move):
         if self.type in attacker.typing:
             if attacker.ability.name == "Adaptability":
                 yield STABCondition(source=attacker.ability.name, multiplier=2)
+
+    def get_typing_modifiers(self, attacker: PokemonState,
+                             defender: PokemonState,
+                             board_state: BoardState) -> Iterable[TypeChangeCondition]:
+        functions: tuple[CalcConditionFunc, ...] = (WeatherModifiers.typing_conditions,
+                                                    AbilityModifiers.typing_conditions,
+                                                    BoardStateModifiers.typing_conditions)
+        for f in functions:
+            yield from f(move=self, attacker=attacker, defender=defender, board_state=board_state)
+
+
+TCond = TypeVar('TCond', bound=CalculationCondition)
+
+
+class CalcConditionFunc(Protocol):
+
+    @classmethod
+    def __call__(cls, move: DamagingMove,
+                 attacker: PokemonState,
+                 defender: PokemonState,
+                 board_state: BoardState) -> Iterable[TCond]:
+        ...
 
 
 #
@@ -160,6 +178,30 @@ class WeatherModifiers:
                                            multiplier=1.5,
                                            for_attacker=False)
 
+    @classmethod
+    def base_power_conditions(cls, move: DamagingMove,
+                              attacker: PokemonState,
+                              defender: PokemonState,
+                              board_state: BoardState) -> Iterable[BasePowerCondition]:
+        if move.name == "Weather Ball":
+            if board_state.weather != Weather.NONE:
+                yield BasePowerCondition(multiplier=2)
+
+    @classmethod
+    def typing_conditions(cls, move: DamagingMove,
+                          attacker: PokemonState,
+                          defender: PokemonState,
+                          board_state: BoardState) -> Iterable[TypeChangeCondition]:
+        if move.name == "Weather Ball":
+            if board_state.weather == Weather.HAIL:
+                yield TypeChangeCondition(source=move.name, typing=Typing(primary=Type.ICE))
+            elif board_state.weather == Weather.RAIN:
+                yield TypeChangeCondition(source=move.name, typing=Typing(primary=Type.WATER))
+            elif board_state.weather == Weather.SUN:
+                yield TypeChangeCondition(source=move.name, typing=Typing(primary=Type.FIRE))
+            elif board_state.weather == Weather.SAND:
+                yield TypeChangeCondition(source=move.name, typing=Typing(primary=Type.ROCK))
+
 
 class AbilityModifiers:
 
@@ -175,14 +217,14 @@ class AbilityModifiers:
             yield AbilityDamageCondition(ability=attacker.ability, multiplier=1.5)
 
         typing_multiplier = Type.get_damage_multiplier(move.type, defender.typing)
-        if defender.ability.name in ("Filter", "Solid Rock", "Prism Armor") and typing_multiplier > 1:
-            yield AbilityDamageCondition(ability=defender.ability, multiplier=0.75)
         if attacker.ability.name == "Tinted Lens" and typing_multiplier < 1:
             yield AbilityDamageCondition(ability=attacker.ability, multiplier=2)
         if attacker.ability.name == "Neuroforce" and typing_multiplier > 1:
             yield AbilityDamageCondition(ability=attacker.ability, multiplier=1.25)
 
         if attacker.ability.name != "Mold Breaker":
+            if defender.ability.name in ("Filter", "Solid Rock", "Prism Armor") and typing_multiplier > 1:
+                yield AbilityDamageCondition(ability=defender.ability, multiplier=0.75)
             if defender.ability.name == "Bulletproof" and MoveProperties.BULLET in move.properties:
                 yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
                                              for_attacker=False)
@@ -201,15 +243,15 @@ class AbilityModifiers:
             if defender.ability.name == "Levitate" and move.type == Type.GROUND:
                 yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
                                              for_attacker=False)
-        if defender.ability.name == "Fluffy":
-            if MoveProperties.CONTACT in move.properties:
+            if defender.ability.name == "Fluffy":
+                if MoveProperties.CONTACT in move.properties:
+                    yield AbilityDamageCondition(ability=defender.ability, multiplier=0.5)
+                if move.type == Type.FIRE:
+                    yield AbilityDamageCondition(ability=defender.ability, multiplier=2)
+            if defender.ability.name == "Punk Rock" and MoveProperties.SOUND in move.properties:
                 yield AbilityDamageCondition(ability=defender.ability, multiplier=0.5)
-            if move.type == Type.FIRE:
-                yield AbilityDamageCondition(ability=defender.ability, multiplier=2)
-        if defender.ability.name == "Punk Rock" and MoveProperties.SOUND in move.properties:
-            yield AbilityDamageCondition(ability=defender.ability, multiplier=0.5)
-        if defender.ability.name == "Ice Scales" and move.damage_class == DamageClass.SPECIAL:
-            yield AbilityDamageCondition(ability=defender.ability, multiplier=0.5)
+            if defender.ability.name == "Ice Scales" and move.damage_class == DamageClass.SPECIAL:
+                yield AbilityDamageCondition(ability=defender.ability, multiplier=0.5)
         # TODO: Multiscale / Shadow Shield
 
     @classmethod
@@ -217,12 +259,15 @@ class AbilityModifiers:
                         attacker: PokemonState,
                         defender: PokemonState,
                         board_state: BoardState) -> Iterable[StatCondition]:
-        if attacker.ability.name == "Guts" and attacker.status != StatusCondition.NONE:
+        if attacker.ability.name == "Guts" and attacker.status != StatusCondition.NONE \
+                and move.offense_stat == Stat.ATTACK:
             yield AbilityStatCondition(ability=attacker.ability, multiplier=1.5, stat=Stat.ATTACK,
                                        for_attacker=True)
-        if defender.ability.name == "Marvel Scale" and defender.status != StatusCondition.NONE:
+        if defender.ability.name == "Marvel Scale" and defender.status != StatusCondition.NONE \
+                and move.defense_stat == Stat.DEFENSE:
             yield AbilityStatCondition(ability=defender.ability, multiplier=1.5, stat=Stat.DEFENSE,
                                        for_attacker=False)
+        # TODO: Flower Gift
 
     @classmethod
     def base_power_conditions(cls, move: DamagingMove,
@@ -261,11 +306,31 @@ class AbilityModifiers:
             yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_THREE)
         # TODO: Steely Spirit
         # TODO: Toxic Boost / Flare Boost
-        # TODO: Power Spot / Battery / Whatever Cherrim's ability is
+        # TODO: Power Spot / Battery
         # TODO: Analytic
         # TODO: Rivalry
         # TODO: Supreme Overlord
         #
+
+    @classmethod
+    def typing_conditions(cls, move: DamagingMove,
+                          attacker: PokemonState,
+                          defender: PokemonState,
+                          board_state: BoardState) -> Iterable[TypeChangeCondition]:
+        if move.type == Type.NORMAL:
+            if attacker.ability.name == "Aerilate":
+                yield TypeChangeCondition(source=attacker.ability.name, typing=Typing(primary=Type.FLYING))
+            if attacker.ability.name == "Refrigerate":
+                yield TypeChangeCondition(source=attacker.ability.name, typing=Typing(primary=Type.ICE))
+            if attacker.ability.name == "Pixilate":
+                yield TypeChangeCondition(source=attacker.ability.name, typing=Typing(primary=Type.FAIRY))
+            if attacker.ability.name == "Dragonize":
+                yield TypeChangeCondition(source=attacker.ability.name, typing=Typing(primary=Type.DRAGON))
+            if attacker.ability.name == "Galvanize":
+                yield TypeChangeCondition(source=attacker.ability.name, typing=Typing(primary=Type.ELECTRIC))
+        else:
+            if attacker.ability.name == "Normalize":
+                yield TypeChangeCondition(source=attacker.ability.name, typing=Typing(primary=Type.NORMAL))
 
 
 class BoardStateModifiers:
@@ -314,18 +379,25 @@ class BoardStateModifiers:
         has_aura_break = any(effect.type == BoardEffectType.AURA_BREAK for effect in board_state.effects)
         if move.type == Type.FAIRY and any(effect.type == BoardEffectType.FAIRY_AURA for effect in board_state.effects):
             if has_aura_break:
-                yield BoardEffectBasePowerCondition(effect=BoardEffectType.AURA_BREAK, multiplier=0.75)
+                yield BoardEffectBasePowerCondition(effect=BoardEffectType.AURA_BREAK, multiplier=0.75, for_attacker=False)
+                # Does not change math, just adds info to the damage report
+                yield BoardEffectBasePowerCondition(effect=BoardEffectType.FAIRY_AURA, multiplier=1)
             else:
                 yield BoardEffectBasePowerCondition(effect=BoardEffectType.FAIRY_AURA, multiplier=FOUR_THIRDS)
         elif move.type == Type.DARK and any(effect.type == BoardEffectType.DARK_AURA for effect in board_state.effects):
             if has_aura_break:
-                yield BoardEffectBasePowerCondition(effect=BoardEffectType.AURA_BREAK, multiplier=0.75)
+                yield BoardEffectBasePowerCondition(effect=BoardEffectType.AURA_BREAK, multiplier=0.75, for_attacker=False)
+                # Does not change math, just adds info to the damage report
+                yield BoardEffectBasePowerCondition(effect=BoardEffectType.DARK_AURA, multiplier=1)
             else:
                 yield BoardEffectBasePowerCondition(effect=BoardEffectType.DARK_AURA, multiplier=FOUR_THIRDS)
 
         if any(be.type == BoardEffectType.HELPING_HAND for be in board_state.get_effects_for_entity(attacker)):
             yield BoardEffectBasePowerCondition(effect=BoardEffectType.HELPING_HAND, multiplier=1.5,
                                                 for_attacker=True)
+
+        if move.name == "Terrain Pulse" and board_state.terrain != Terrain.NONE:
+            yield BasePowerCondition(multiplier=2)
 
         # TODO: Mud Sport, Water Sport
         # TODO: Charge
@@ -334,6 +406,21 @@ class BoardStateModifiers:
     @classmethod
     def _is_grounded(cls, pok: PokemonState):
         return Type.FLYING not in pok.typing and pok.ability.name != "Levitate"
+
+    @classmethod
+    def typing_conditions(cls, move: DamagingMove,
+                          attacker: PokemonState,
+                          defender: PokemonState,
+                          board_state: BoardState) -> Iterable[TypeChangeCondition]:
+        if move.name == "Terrain Pulse":
+            if board_state.terrain == Terrain.PSYCHIC:
+                yield TypeChangeCondition(source=move.name, typing=Typing(primary=Type.PSYCHIC))
+            elif board_state.terrain == Terrain.GRASSY:
+                yield TypeChangeCondition(source=move.name, typing=Typing(primary=Type.GRASS))
+            elif board_state.terrain == Terrain.ELECTRIC:
+                yield TypeChangeCondition(source=move.name, typing=Typing(primary=Type.ELECTRIC))
+            elif board_state.terrain == Terrain.MISTY:
+                yield TypeChangeCondition(source=move.name, typing=Typing(primary=Type.FAIRY))
 
 
 class ItemModifiers:

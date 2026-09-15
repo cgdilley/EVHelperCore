@@ -5,7 +5,7 @@ from .Ability import Ability
 from .Item import Item
 from .BoardState import Weather, Terrain, BoardEffect, BoardEffectType, BoardState
 from .Stats import Stat
-from .Type import Type
+from .Type import Type, Typing
 
 from abc import ABC
 
@@ -81,7 +81,7 @@ class ItemDamageCondition(DamageCondition, ItemCondition):
 
 class TypeChangeCondition(CalculationCondition):
     source: str
-    new_type: Type
+    typing: Typing
 
 
 class WeatherCondition(CalculationCondition, ABC):

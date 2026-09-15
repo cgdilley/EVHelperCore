@@ -209,9 +209,15 @@ class DamageReport(JSONModel):
             yield from (c.ability.name for c in self._get_conditions(AbilityCondition)
                         if getattr(c, "for_attacker", True))
 
+            # Board effect modifiers
+            yield from (" ".join(x.capitalize() for x in c.effect.name.split("_"))
+                        for c in self._get_conditions(BoardEffectBasePowerCondition)
+                        if getattr(c, "for_attacker", True))
+
         # Pokemon and Move
         yield ShowdownUtils.format_name(self.attacker.data.name.base_name(),
                                         self.attacker.data.variant)
+
         yield self.move.name
 
         if self.max_roll > 0:
@@ -241,6 +247,11 @@ class DamageReport(JSONModel):
 
             # Item modifiers
             yield from (c.item.name for c in self._get_conditions(ItemCondition)
+                        if not getattr(c, "for_attacker", True))
+
+            # Board effect modifiers
+            yield from (" ".join(x.capitalize() for x in c.effect.name.split("_"))
+                        for c in self._get_conditions(BoardEffectBasePowerCondition)
                         if not getattr(c, "for_attacker", True))
 
         # Ability modifiers
@@ -332,7 +343,7 @@ class DamageReport(JSONModel):
                 yield f"{FormatUtils.format_number(probability * 100, max_decimals=2)}% chance to {ko_str}"
 
             # Healing indications
-            if len(hp_effects) > 0:
+            if len(hp_effects) > 0 and hits > 1:
                 if len(hp_effects) > 2:
                     combined = ", ".join(eff for eff, _, _ in hp_effects[:-1]) + f", and {hp_effects[-1][0]}"
                 elif len(hp_effects) > 1:

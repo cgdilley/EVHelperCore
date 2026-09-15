@@ -4,3 +4,4 @@ uv.lock
 **/__pycache__
 *.pyc
 /src/sprelf_pokemon_core.egg-info/
+/.claude/

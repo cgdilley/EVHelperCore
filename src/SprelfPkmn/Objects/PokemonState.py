@@ -75,7 +75,8 @@ class PokemonState(Pokemon, Entity):
             slot=slot,
             hp=hp,
             status=StatusCondition.NONE,
-            volatiles=[])
+            volatiles=[],
+            gender=None)
 
     @property
     def modifiers(self) -> dict[Stat, int]:

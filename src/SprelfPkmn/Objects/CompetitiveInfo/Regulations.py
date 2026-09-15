@@ -9,6 +9,7 @@ from SprelfJSON import JSONModel
 class Regulation(Enum):
     M_A = "M-A"
     M_B = "M-B"
+    M_C = "M-C"
 
 
 class Regulations(JSONModel):
