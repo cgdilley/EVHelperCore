@@ -90,3 +90,7 @@ class BoardState(JSONModel):
 
     def get_effects_for_entity(self, entity: Entity) -> Iterable[BoardEffect]:
         yield from (e for e in self.effects if any(entity.matches(t) for t in e.targets))
+
+    @classmethod
+    def empty(cls) -> BoardState:
+        return cls(entities=[])

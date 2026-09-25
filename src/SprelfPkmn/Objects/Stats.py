@@ -447,7 +447,7 @@ class Stats(JSONModel):
     def set_iv(self, iv: IV):
         self.ivs[iv.stat] = iv.value
 
-    def get_ev(self, stat: Stat) -> int:
+    def get_ev(self, stat: Stat) -> TrainedValue:
         StatError.check_number_stat(stat)
         return self.evs[stat]
 

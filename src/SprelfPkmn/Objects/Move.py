@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from enum import IntFlag, Enum
 from abc import ABC
+from typing import Iterator
 
 from SprelfJSON import JSONModel
 from .Type import Type
@@ -66,3 +67,9 @@ class MoveSet(JSONModel):
     Describes the set of 4 moves that a single Pokémon knows
     """
     moves: list[Move] = []
+
+    def __iter__(self) -> Iterator[Move]:
+        return iter(self.moves)
+
+    def __len__(self) -> int:
+        return len(self.moves)

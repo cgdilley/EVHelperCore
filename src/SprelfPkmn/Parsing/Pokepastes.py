@@ -16,7 +16,7 @@ def parse_pokepaste(paste: str, database: PokemonDataMap, moves: MoveDataMap) ->
 def _parse_pokepaste_lines(lines: Iterable[str],
                            database: PokemonDataMap,
                            moves: MoveDataMap) -> Iterable[Pokemon]:
-    name_and_item = re.compile(r"^(\w+)( \((\w+)\))?( \([MF]\))?( @ (.+))?$")
+    name_and_item = re.compile(r"^([^(@]+)( \(([\w\-' ]+)\))?( \([MF]\))?( @ (.+))?$")
     ability = re.compile(r"^Ability: (.+)$")
     stat_blocks = re.compile(r"^([IE]Vs): (((\d+) (\w{2,3}))( / ((\d+) (\w{2,3})))*)$")
     stat_individual = re.compile(r"(\d+) (\w{2,3})")
@@ -30,6 +30,7 @@ def _parse_pokepaste_lines(lines: Iterable[str],
             if all(f in curr for f in Pokemon.__json_model__.keys()):
                 yield Pokemon(**curr)
             curr = dict()
+            continue
 
         if len(curr) == 0:
             if m := name_and_item.match(line):
@@ -46,6 +47,7 @@ def _parse_pokepaste_lines(lines: Iterable[str],
                 else:
                     continue
                 curr["data"] = mon
+                curr["ability"] = mon.abilities.primary
                 curr["typing"] = mon.typing
                 curr["stats"] = Stats.of(base=mon.stats, evs=(), ivs=(), level=50, nature=Nature.Serious)
                 curr["item"] = Item(name=m.group(6)) if m.group(6) else None
