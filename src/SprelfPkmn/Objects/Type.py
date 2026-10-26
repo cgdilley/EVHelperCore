@@ -58,7 +58,7 @@ ATTACK_EFFECTIVENESS: dict[Type, TypeEffectivenessRecord] = {
     Type.FIGHTING: TypeEffectivenessRecord((Type.NORMAL, Type.ROCK, Type.STEEL, Type.DARK, Type.ICE),
                                            (Type.FLYING, Type.POISON, Type.BUG, Type.PSYCHIC, Type.FAIRY),
                                            (Type.GHOST,)),
-    Type.FLYING: TypeEffectivenessRecord((Type.BUG, Type.GRASS), (Type.ROCK, Type.STEEL, Type.ELECTRIC), ()),
+    Type.FLYING: TypeEffectivenessRecord((Type.BUG, Type.GRASS, Type.FIGHTING), (Type.ROCK, Type.STEEL, Type.ELECTRIC), ()),
     Type.POISON: TypeEffectivenessRecord((Type.GRASS, Type.FAIRY),
                                          (Type.POISON, Type.GROUND, Type.ROCK, Type.GHOST), (Type.STEEL,)),
     Type.GROUND: TypeEffectivenessRecord((Type.POISON, Type.ROCK, Type.STEEL, Type.FIRE, Type.ELECTRIC),

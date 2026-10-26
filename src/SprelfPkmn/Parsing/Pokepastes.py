@@ -108,17 +108,17 @@ def _parse_pokepaste_lines(lines: Iterable[str],
 
 
 def _parse_stat(s: str) -> Stat | None:
-    match s:
-        case "HP":
+    match s.lower():
+        case "hp":
             return Stat.HP
-        case "Atk":
+        case "atk":
             return Stat.ATTACK
-        case "Def":
+        case "def":
             return Stat.DEFENSE
-        case "SpA":
+        case "spa":
             return Stat.SP_ATTACK
-        case "SpD":
+        case "spd":
             return Stat.SP_DEFENSE
-        case "Spe":
+        case "spe":
             return Stat.SPEED
     return None

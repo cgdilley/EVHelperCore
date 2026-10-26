@@ -5,7 +5,7 @@ from abc import ABC
 from typing import Iterator
 
 from SprelfJSON import JSONModel
-from .Type import Type
+from .Type import Type, Typing
 
 
 #
@@ -51,8 +51,17 @@ class Move(JSONModel, ABC):
     max_pp: int | None = None
     description: str = ""
     priority: int = 0
+    _modified_typing: Typing | None = None
 
+    @property
+    def modified_typing(self) -> Typing:
+        if self._modified_typing is not None:
+            return self._modified_typing
+        return Typing(primary=self.type)
 
+    @modified_typing.setter
+    def modified_typing(self, value: Typing):
+        self._modified_typing = value
 
 
 class MoveList(JSONModel):

@@ -44,7 +44,8 @@ class DamagingMove(Move):
                    max_pp=max_pp, properties=properties)
 
     def __str__(self) -> str:
-        return f"[{type(self).__name__}] {self.name} : {self.type.name.capitalize()} ({self.base_power})"
+        type_str = " / ".join(t.name.capitalize() for t in self.modified_typing)
+        return f"[{type(self).__name__}] {self.name} : {type_str} ({self.base_power})"
 
     def get_damage_conditions(self, attacker: PokemonState,
                               defender: PokemonState,
@@ -99,7 +100,7 @@ class DamagingMove(Move):
     def get_stab_modifiers(self, attacker: PokemonState,
                            defender: PokemonState,
                            board_state: BoardState) -> Iterable[STABCondition]:
-        if self.type in attacker.typing:
+        if any(t in attacker.typing for t in self.modified_typing):
             if attacker.ability.name == "Adaptability":
                 yield STABCondition(source=attacker.ability.name, multiplier=2)
 
@@ -143,14 +144,14 @@ class WeatherModifiers:
                           defender: PokemonState,
                           board_state: BoardState) -> Iterable[WeatherDamageCondition]:
         if len(board_state.weather_negations) == 0:
-            if move.type == Type.FIRE:
+            if Type.FIRE in move.modified_typing:
                 if board_state.weather in (Weather.SUN, Weather.HARSH_SUN):
                     yield WeatherDamageCondition(weather=board_state.weather, multiplier=1.5)
                 elif board_state.weather == Weather.RAIN:
                     yield WeatherDamageCondition(weather=board_state.weather, multiplier=0.5)
                 elif board_state.weather == Weather.HEAVY_RAIN:
                     yield WeatherDamageCondition(weather=board_state.weather, multiplier=0)
-            elif move.type == Type.WATER:
+            elif Type.WATER in move.modified_typing:
                 if board_state.weather in (Weather.RAIN, Weather.HEAVY_RAIN):
                     yield WeatherDamageCondition(weather=board_state.weather, multiplier=1.5)
                 elif board_state.weather == Weather.SUN:
@@ -216,7 +217,7 @@ class AbilityModifiers:
         if critical and attacker.ability.name == "Sniper":
             yield AbilityDamageCondition(ability=attacker.ability, multiplier=1.5)
 
-        typing_multiplier = Type.get_damage_multiplier(move.type, defender.typing)
+        typing_multiplier = Type.get_damage_multiplier(move.modified_typing, defender.typing)
         if attacker.ability.name == "Tinted Lens" and typing_multiplier < 1:
             yield AbilityDamageCondition(ability=attacker.ability, multiplier=2)
         if attacker.ability.name == "Neuroforce" and typing_multiplier > 1:
@@ -231,22 +232,23 @@ class AbilityModifiers:
             if defender.ability.name == "Soundproof" and MoveProperties.SOUND in move.properties:
                 yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
                                              for_attacker=False)
-            if defender.ability.name in ("Flash Fire", "Well-baked Body") and move.type == Type.FIRE:
+            if defender.ability.name in ("Flash Fire", "Well-baked Body") and Type.FIRE in move.modified_typing:
                 yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
                                              for_attacker=False)
-            if defender.ability.name == "Volt Absorb" and move.type == Type.ELECTRIC:
+            if defender.ability.name == "Volt Absorb" and Type.ELECTRIC in move.modified_typing:
                 yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
                                              for_attacker=False)
-            if defender.ability.name in ("Storm Drain", "Water Absorb", "Dry Skin") and move.type == Type.WATER:
+            if defender.ability.name in ("Storm Drain", "Water Absorb",
+                                         "Dry Skin") and Type.WATER in move.modified_typing:
                 yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
                                              for_attacker=False)
-            if defender.ability.name == "Levitate" and move.type == Type.GROUND:
+            if defender.ability.name == "Levitate" and Type.GROUND in move.modified_typing:
                 yield AbilityDamageCondition(ability=defender.ability, multiplier=0,
                                              for_attacker=False)
             if defender.ability.name == "Fluffy":
                 if MoveProperties.CONTACT in move.properties:
                     yield AbilityDamageCondition(ability=defender.ability, multiplier=0.5)
-                if move.type == Type.FIRE:
+                if Type.FIRE in move.modified_typing:
                     yield AbilityDamageCondition(ability=defender.ability, multiplier=2)
             if defender.ability.name == "Punk Rock" and MoveProperties.SOUND in move.properties:
                 yield AbilityDamageCondition(ability=defender.ability, multiplier=0.5)
@@ -292,17 +294,18 @@ class AbilityModifiers:
                 (MoveProperties.RECOIL in move.properties or MoveProperties.CRASHING in move.properties):
             yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_TWO)
 
-        if attacker.ability.name == "Steelworker" and move.type == Type.STEEL:
+        if attacker.ability.name == "Steelworker" and Type.STEEL in move.modified_typing:
             yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=1.5)
         if attacker.ability.name in ("Aerilate", "Refrigerate", "Pixilate", "Dragonize", "Galvanize") \
-                and move.type == Type.NORMAL:
+                and Type.NORMAL == move.type:
             yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_TWO)
         if attacker.ability.name == "Normalize":
             yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_TWO)
         if attacker.ability.name == "Technician" and move.base_power <= 60:
             yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=1.5)
-        if attacker.ability.name == "Sand Force" and board_state.weather == Weather.SAND and \
-                move.type in ("Ground", "Rock", "Steel") and len(board_state.weather_negations) == 0:
+        if attacker.ability.name == "Sand Force" and board_state.weather == Weather.SAND \
+                and any(t in ("Ground", "Rock", "Steel") for t in move.modified_typing) \
+                and len(board_state.weather_negations) == 0:
             yield AbilityBasePowerCondition(ability=attacker.ability, multiplier=ONE_POINT_THREE)
         # TODO: Steely Spirit
         # TODO: Toxic Boost / Flare Boost
@@ -317,7 +320,7 @@ class AbilityModifiers:
                           attacker: PokemonState,
                           defender: PokemonState,
                           board_state: BoardState) -> Iterable[TypeChangeCondition]:
-        if move.type == Type.NORMAL:
+        if Type.NORMAL in move.modified_typing:
             if attacker.ability.name == "Aerilate":
                 yield TypeChangeCondition(source=attacker.ability.name, typing=Typing(primary=Type.FLYING))
             if attacker.ability.name == "Refrigerate":
@@ -364,29 +367,35 @@ class BoardStateModifiers:
                               attacker: PokemonState,
                               defender: PokemonState,
                               board_state: BoardState) -> Iterable[BasePowerCondition]:
-        if board_state.terrain == Terrain.MISTY and move.type == Type.DRAGON and cls._is_grounded(defender):
+        if board_state.terrain == Terrain.MISTY and Type.DRAGON in move.modified_typing and cls._is_grounded(defender):
             yield TerrainBasePowerCondition(terrain=board_state.terrain, multiplier=0.5)
-        elif board_state.terrain == Terrain.ELECTRIC and move.type == Type.ELECTRIC and cls._is_grounded(attacker):
+        elif board_state.terrain == Terrain.ELECTRIC and Type.ELECTRIC in move.modified_typing and cls._is_grounded(
+                attacker):
             yield TerrainBasePowerCondition(terrain=board_state.terrain, multiplier=ONE_POINT_THREE)
-        elif board_state.terrain == Terrain.GRASSY and move.type == Type.GRASS and cls._is_grounded(attacker):
+        elif board_state.terrain == Terrain.GRASSY and Type.GRASS in move.modified_typing and cls._is_grounded(
+                attacker):
             yield TerrainBasePowerCondition(terrain=board_state.terrain, multiplier=ONE_POINT_THREE)
         elif board_state.terrain == Terrain.PSYCHIC:
             if move.priority > 0:
                 yield TerrainBasePowerCondition(terrain=board_state.terrain, multiplier=0)
-            elif move.type == Type.PSYCHIC and cls._is_grounded(attacker):
+            elif Type.PSYCHIC in move.modified_typing and cls._is_grounded(attacker):
                 yield TerrainBasePowerCondition(terrain=board_state.terrain, multiplier=ONE_POINT_THREE)
 
         has_aura_break = any(effect.type == BoardEffectType.AURA_BREAK for effect in board_state.effects)
-        if move.type == Type.FAIRY and any(effect.type == BoardEffectType.FAIRY_AURA for effect in board_state.effects):
+        if Type.FAIRY in move.modified_typing and any(
+                effect.type == BoardEffectType.FAIRY_AURA for effect in board_state.effects):
             if has_aura_break:
-                yield BoardEffectBasePowerCondition(effect=BoardEffectType.AURA_BREAK, multiplier=0.75, for_attacker=False)
+                yield BoardEffectBasePowerCondition(effect=BoardEffectType.AURA_BREAK, multiplier=0.75,
+                                                    for_attacker=False)
                 # Does not change math, just adds info to the damage report
                 yield BoardEffectBasePowerCondition(effect=BoardEffectType.FAIRY_AURA, multiplier=1)
             else:
                 yield BoardEffectBasePowerCondition(effect=BoardEffectType.FAIRY_AURA, multiplier=FOUR_THIRDS)
-        elif move.type == Type.DARK and any(effect.type == BoardEffectType.DARK_AURA for effect in board_state.effects):
+        elif Type.DARK in move.modified_typing and any(
+                effect.type == BoardEffectType.DARK_AURA for effect in board_state.effects):
             if has_aura_break:
-                yield BoardEffectBasePowerCondition(effect=BoardEffectType.AURA_BREAK, multiplier=0.75, for_attacker=False)
+                yield BoardEffectBasePowerCondition(effect=BoardEffectType.AURA_BREAK, multiplier=0.75,
+                                                    for_attacker=False)
                 # Does not change math, just adds info to the damage report
                 yield BoardEffectBasePowerCondition(effect=BoardEffectType.DARK_AURA, multiplier=1)
             else:
@@ -435,7 +444,9 @@ class ItemModifiers:
                 yield ItemBasePowerCondition(item=attacker.item, multiplier=ONE_POINT_ONE)
             if attacker.item.name == "Wise Glasses" and move.damage_class == DamageClass.SPECIAL:
                 yield ItemBasePowerCondition(item=attacker.item, multiplier=ONE_POINT_ONE)
-            if any(attacker.item.name == name for name in cls._type_item(move.type)):
+            if any(attacker.item.name == name
+                   for t in move.modified_typing
+                   for name in cls._type_item(t)):
                 yield ItemBasePowerCondition(item=attacker.item, multiplier=ONE_POINT_TWO)
             if attacker.item.name == "Punching Glove" and MoveProperties.PUNCHING in move.properties:
                 yield ItemBasePowerCondition(item=attacker.item, multiplier=ONE_POINT_ONE)
@@ -463,15 +474,15 @@ class ItemModifiers:
                 yield ItemDamageCondition(item=attacker.item, multiplier=1.5, for_attacker=True)
             if attacker.item.name == "Choice Specs" and move.damage_class == DamageClass.SPECIAL:
                 yield ItemDamageCondition(item=attacker.item, multiplier=1.5, for_attacker=True)
-            if attacker.item.name == "Expert Belt" and Type.get_damage_multiplier(move.type, defender.typing) > 1:
+            if attacker.item.name == "Expert Belt" and Type.get_damage_multiplier(move.modified_typing, defender.typing) > 1:
                 yield ItemDamageCondition(item=attacker.item, multiplier=ONE_POINT_TWO, for_attacker=True)
 
         if defender.item:
-            if defender.item.name == cls._type_resist_berry(move.type) \
+            if any(defender.item.name == cls._type_resist_berry(t) for t in move.modified_typing) \
                     and not any(be.type == BoardEffectType.UNNERVE
                                 for be in board_state.get_effects_for_entity(defender)) \
-                    and (move.type == Type.NORMAL
-                         or Type.get_damage_multiplier(move.type, defender.typing) > 1):
+                    and (Type.NORMAL in move.modified_typing
+                         or Type.get_damage_multiplier(move.modified_typing, defender.typing) > 1):
                 yield ItemDamageCondition(item=defender.item,
                                           multiplier=0.25 if defender.ability.name == "Ripen" else 0.5,
                                           for_attacker=False)

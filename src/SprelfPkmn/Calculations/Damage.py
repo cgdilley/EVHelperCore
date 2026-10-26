@@ -45,6 +45,7 @@ def calculate_damage(attacker: PokemonState,
     move_type = Typing(primary=move.type)
     for cond in type_change_conditions:
         move_type = cond.typing
+    move.modified_typing = move_type
 
     # Calculate ratio between offense and defense stats
     damage_ratio = math.floor(o_stat) / math.floor(d_stat)
@@ -92,7 +93,7 @@ def calculate_damage(attacker: PokemonState,
     stab_conditions = list(move.get_stab_modifiers(attacker=attacker,
                                                    defender=defender,
                                                    board_state=board_state))
-    if any(t in attacker.typing for t in move_type):
+    if any(t in attacker.typing for t in move.modified_typing):
         if len(stab_conditions) > 0:
             for c in stab_conditions:
                 stab_multiplier *= c.multiplier
@@ -100,9 +101,7 @@ def calculate_damage(attacker: PokemonState,
             stab_multiplier = 1.5
 
     # Type effectiveness (applied later)
-    typing_multiplier = 1
-    for t in move_type:
-        typing_multiplier *= Type.get_damage_multiplier(t, defender.typing)
+    typing_multiplier = Type.get_damage_multiplier(move.modified_typing, defender.typing)
 
     rolls: list[int] = []
     if base_value == 0 or typing_multiplier == 0 \
